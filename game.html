@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dark Fantasy Poker Roguelike</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=DungGeunMo&display=swap');
+        
+        body { background-color: #1a1a1a; color: #eee; font-family: 'DungGeunMo', 'Press Start 2P', monospace; user-select: none; overflow: hidden; touch-action: manipulation; }
+        
+        .pixel-box { border: 4px solid #4a4a4a; background-color: #2a2a2a; box-shadow: inset -4px -4px 0px 0px rgba(0,0,0,0.5); }
+        .pixel-btn { border: 4px solid #5a5a5a; background-color: #3a3a3a; box-shadow: 4px 4px 0px 0px rgba(0,0,0,0.8); transition: all 0.1s; text-align: center; cursor: pointer; }
+        .pixel-btn:active { transform: translate(4px, 4px); box-shadow: none; }
+        .pixel-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: 4px 4px 0px 0px rgba(0,0,0,0.8); }
+        
+        .card { width: 14vw; max-width: 70px; height: 20vw; max-height: 100px; border: 2px solid #555; background-color: #fff; border-radius: 4px; display: flex; flex-direction: column; justify-content: center; align-items: center; color: black; font-weight: bold; cursor: pointer; transition: transform 0.2s; position: relative; }
+        .card.selected { transform: translateY(-15px); border-color: #facc15; box-shadow: 0 0 10px #facc15; }
+        .suit-spade { color: #111; } .suit-heart { color: #dc2626; } .suit-diamond { color: #2563eb; } .suit-club { color: #16a34a; }
+        
+        .log-container::-webkit-scrollbar { width: 8px; }
+        .log-container::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+        
+        .damage-float { position: absolute; animation: floatUp 1s ease-out forwards; font-weight: bold; font-size: 1.5rem; text-shadow: 2px 2px 0 #000; pointer-events: none; z-index: 50;}
+        @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-40px) scale(1.2); } }
+        
+        .shake { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
+
+        .enemy-card { transition: all 0.3s ease; }
+        .enemy-target { border-color: #ef4444 !important; box-shadow: 0 0 15px rgba(239, 68, 68, 0.5); }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col">
+
+    <!-- OVERLAY (Modals) -->
+    <div id="overlay" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center backdrop-blur-sm">
+        
+        <!-- Start Choice -->
+        <div id="start-choice-modal" class="pixel-box p-6 max-w-md w-full mx-4 flex flex-col gap-4">
+            <h2 class="text-xl text-center text-yellow-400 mb-2" id="start-modal-title">시작 무기 선택</h2>
+            <div id="start-choice-container" class="flex flex-col gap-3"></div>
+        </div>
+
+        <!-- Reward Modal -->
+        <div id="reward-modal" class="pixel-box p-6 max-w-2xl w-full mx-4 flex flex-col gap-4 hidden">
+            <h2 class="text-xl md:text-2xl text-center text-yellow-400 mb-4">전투 승리! 보상을 선택하세요</h2>
+            <div id="reward-container" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+            <button onclick="skipReward()" class="pixel-btn py-3 mt-4 text-gray-400 border-gray-600 hover:bg-gray-800">보상 받지 않고 넘어가기</button>
+        </div>
+
+        <!-- Choice/Replace Modal -->
+        <div id="choice-modal" class="pixel-box p-6 max-w-2xl w-full mx-4 flex flex-col gap-4 hidden">
+            <h2 id="choice-title" class="text-xl text-center text-yellow-400 mb-4">교체할 항목 선택</h2>
+            <div id="choice-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </div>
+
+        <!-- Module Management Modal (모듈 정비소) -->
+        <div id="module-manage-modal" class="pixel-box p-4 md:p-6 max-w-4xl w-full mx-4 flex flex-col gap-4 hidden max-h-[90vh] overflow-y-auto">
+            <h2 class="text-xl md:text-2xl text-center text-purple-400 mb-2">모듈 정비소</h2>
+            <div class="text-center text-xs md:text-sm text-gray-400 mb-2">장착할 모듈과 보관할 모듈을 클릭하여 교체하세요. (각 최대 5개)</div>
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex-1 border-2 border-gray-600 p-3 bg-[#111]">
+                    <h3 class="text-base md:text-lg text-green-400 border-b border-gray-600 pb-2 mb-3">장착 중 (<span id="equipped-count">0</span>/5)</h3>
+                    <div id="equipped-modules-container" class="flex flex-col gap-2"></div>
+                </div>
+                <div class="flex-1 border-2 border-gray-600 p-3 bg-[#111]">
+                    <h3 class="text-base md:text-lg text-gray-400 border-b border-gray-600 pb-2 mb-3">보관소 (<span id="inventory-count">0</span>/5)</h3>
+                    <div id="inventory-modules-container" class="flex flex-col gap-2"></div>
+                </div>
+            </div>
+            <button onclick="finishModuleManagement()" class="pixel-btn py-3 mt-2 w-full text-white text-base md:text-lg border-green-600 bg-green-900/30 hover:bg-green-800 transition-colors">정비 완료 (다음 전투 진입)</button>
+        </div>
+
+        <!-- Game Over Modal -->
+        <div id="gameover-modal" class="pixel-box p-8 max-w-md w-full mx-4 flex flex-col items-center gap-6 hidden">
+            <h2 class="text-3xl text-red-500 animate-pulse">YOU DIED</h2>
+            <p id="gameover-stats" class="text-center text-gray-300"></p>
+            <button onclick="location.reload()" class="pixel-btn px-6 py-3 text-lg w-full">다시 시작</button>
+        </div>
+    </div>
+
+    <!-- TOP: Enemy Area -->
+    <div class="h-32 md:h-40 w-full flex items-center justify-center gap-2 p-2 shrink-0 bg-[#111]" id="enemies-container">
+        <!-- Enemies rendered here -->
+    </div>
+
+    <!-- MIDDLE: Log Area -->
+    <div class="flex-1 w-full max-w-3xl mx-auto p-2 flex flex-col min-h-0">
+        <div class="flex justify-between items-end mb-1 shrink-0">
+            <div class="text-xs text-gray-400">스테이지 <span id="ui-stage" class="text-yellow-400 text-sm">1</span></div>
+            <div class="text-xs text-purple-400" id="ui-deck-count">덱: 0장 | 무덤: 0장</div>
+        </div>
+        <div id="combat-log" class="pixel-box flex-1 p-3 overflow-y-auto log-container flex flex-col gap-1 text-xs md:text-sm break-keep">
+            <!-- Logs -->
+        </div>
+    </div>
+
+    <!-- BOTTOM-MID: Player Status & Modules & Weapons -->
+    <div class="w-full max-w-3xl mx-auto p-2 shrink-0 flex flex-col gap-2">
+        <div class="flex justify-between items-center bg-[#222] p-2 border-2 border-gray-700">
+            <div class="flex flex-col">
+                <span class="text-yellow-500 text-sm mb-1">플레이어 HP</span>
+                <div class="flex items-center gap-2">
+                    <div class="w-32 md:w-48 h-4 bg-red-900 border border-gray-600 relative">
+                        <div id="player-hp-bar" class="h-full bg-red-500 transition-all duration-300 w-full"></div>
+                    </div>
+                    <span id="player-hp-text" class="text-xs">60/60</span>
+                </div>
+            </div>
+            <div id="player-status-icons" class="flex gap-1"></div>
+        </div>
+
+        <div class="flex gap-2" id="weapons-container">
+            <!-- Weapons -->
+        </div>
+
+        <div class="flex gap-2" id="modules-container">
+            <!-- Equipped Modules -->
+        </div>
+        
+        <!-- Active Module Actions -->
+        <div id="module-actions" class="flex gap-2 hidden"></div>
+    </div>
+
+    <!-- BOTTOM: Hand & Controls -->
+    <div class="h-40 w-full bg-[#0a0a0a] border-t-4 border-gray-700 p-2 flex items-center justify-between shrink-0">
+        <div class="flex-1 flex justify-center gap-1 md:gap-2" id="hand-container">
+            <!-- Hand Cards -->
+        </div>
+        
+        <div class="w-24 md:w-32 flex flex-col gap-2 ml-2 shrink-0">
+            <button id="btn-reroll" class="pixel-btn py-2 text-xs md:text-sm text-blue-300" onclick="handleReroll()">리롤 (<span id="ui-rerolls">0</span>)</button>
+            <button id="btn-attack" class="pixel-btn py-3 text-sm md:text-base text-red-400 font-bold" onclick="handleAttack()">공격하기</button>
+            <button id="btn-endturn" class="pixel-btn py-2 text-xs md:text-sm text-gray-400" onclick="handleEndTurn()">턴 종료</button>
+        </div>
+    </div>
+
+    <script>
+        // Data Bases
+        const WEAPONS_DB = {
+            'greatsword': { name: '대검', reqType: 'straight', reqCount: 4, baseDmg: 10, effectDesc: lv => lv===1?'특수 효과 없음':`출혈 ${lv-1}스택 부여` },
+            'thorn': { name: '가시검', reqType: 'flush', reqCount: 3, baseDmg: 8, effectDesc: lv => lv===1?'특수 효과 없음':`치명타 확률 ${10 * (lv-1)}% (피해 2배)` },
+            'club': { name: '대왕 몽둥이', reqType: 'triple', reqCount: 3, baseDmg: 12, effectDesc: lv => lv===1?'특수 효과 없음':`기절 확률 ${10 + (lv-2)*15}% (다음 턴 스킵)` },
+            'eclipse': { name: '이클립스', reqType: 'straight', reqCount: 3, baseDmg: 9, effectDesc: lv => lv===1?'특수 효과 없음':`화상 ${lv-1}스택 부여` },
+            'axe': { name: '광전사의 도끼', reqType: 'pair', reqCount: 1, baseDmg: 5, effectDesc: lv => lv===1?'특수 효과 없음':`가한 피해의 ${15 + (lv-2)*5}% 체력 회복` }
+        };
+
+        const MODULES_DB = {
+            'spade_loader': { id: 'spade_loader', name: '지정 칩', type: 'passive', desc: '턴 시작 시, 덱에서 스페이드 1장 확정 드로우' },
+            'holo_clone': { id: 'holo_clone', name: '홀로그램 복제기', type: 'passive', desc: '턴 시작 시, 손패의 무작위 카드 1장 복제 (턴 종료 시 소멸)' },
+            'emergency_exit': { id: 'emergency_exit', name: '비상 탈출구', type: 'passive', desc: '턴 중 손패가 0장이 되면 즉시 3장 드로우 (전투당 1회)' },
+            'joker_chip': { id: 'joker_chip', name: '조커 칩', type: 'active', desc: '매 턴 1회, 손패 1장의 문양 변환' },
+            'tuning': { id: 'tuning', name: '위상 조율기', type: 'active', desc: '매 턴 1회, 손패 1장의 숫자 +1/-1 조율' },
+            'kings_decree': { id: 'kings_decree', name: '왕의 칙령', type: 'passive', desc: '매 턴 처음으로 내는 5는 K로 취급됨 (효과/엔진 모두 적용)' },
+            'reroll_battery': { id: 'reroll_battery', name: '리롤 배터리', type: 'passive', desc: '리롤 사용 시 50% 확률로 리롤권 +1 획득' },
+            'keep_slot': { id: 'keep_slot', name: '킵 슬롯', type: 'passive', desc: '손패 외 카드 1장 영구 보관 슬롯 제공' },
+            'overload_chip': { id: 'overload_chip', name: '과부하 칩', type: 'active', desc: '리롤권 1회 획득 (다음 턴 시작 드로우 5장 제한, 쿨 2턴)' },
+            'minimalist': { id: 'minimalist', name: '미니멀리스트', type: 'passive', desc: '턴 종료 시 손패가 3장 미만이면 다음 턴에 하트 3 확정 획득' },
+            'one_way': { id: 'one_way', name: '외길 인생', type: 'passive', desc: '리롤 최대 1장 제한, 대신 모든 무기 족보 필요수 -1' }
+        };
+
+        const MONSTERS = {
+            'fly_bug': { name: '비행 벌레', maxHp: 20, pattern: [{type:'rest'}, {type:'attack', val:10}] },
+            'lizard': { name: '도마뱀', maxHp: 10, pattern: [{type:'rest'}, {type:'attack', val:4}] },
+            'slime': { name: '슬라임', maxHp: 4, pattern: [{type:'attack', val:2}] },
+            'rock_bug': { name: '바위 벌레', maxHp: 30, pattern: [{type:'defend', val:5}, {type:'attack', val:7}, {type:'buff', val:2}] },
+            'vine_bug': { name: '덩굴 벌레', maxHp: 17, pattern: [{type:'attack', val:3}, {type:'buff', val:2}, {type:'attack', val:3}, {type:'buff', val:2}, {type:'rest'}] },
+            'orc': { name: '오크', maxHp: 42, pattern: [{type:'defend', val:12}, {type:'rest'}, {type:'attack', val:15}] },
+            'rat': { name: '쥐', maxHp: 15, pattern: [{type:'attack', val:3}] },
+            'knight': { name: '기사(보스)', maxHp: 100, pattern: [{type:'attack', val:7}] }
+        };
+
+        const ENCOUNTERS = {
+            1: [ ['fly_bug', 'lizard', 'lizard'] ],
+            2: [ ['fly_bug', 'lizard', 'lizard'], ['slime', 'lizard', 'fly_bug'] ],
+            3: [ ['rock_bug'], ['vine_bug', 'vine_bug'], ['orc'], ['rat', 'rat', 'rat'] ],
+            4: [ ['knight'] ]
+        };
+
+        // Game State
+        let stage = 1;
+        const MAX_STAGE = 10;
+        let gameState = 'START'; // START, PLAYER_TURN, ENEMY_TURN, CLONE_SELECT, MODULE_ACT, REWARD, MODULE_MANAGEMENT
+        let enemies = [];
+        let moduleDropEarned = false;
+
+        let player = {
+            hp: 60, maxHp: 60,
+            weapons: [], modules: [], inventoryModules: [], deck: [], discard: [], hand: [], keepSlot: null,
+            selectedCardIndices: [], rerolls: 0, baseRerolls: 1, status: { bleed: 0 },
+            combatState: {}
+        };
+
+        function log(msg, type='normal') {
+            const container = document.getElementById('combat-log');
+            const div = document.createElement('div');
+            if(type==='system') div.className = 'text-yellow-400';
+            else if(type==='damage') div.className = 'text-red-400 font-bold';
+            else if(type==='heal') div.className = 'text-green-400';
+            else if(type==='enemy') div.className = 'text-purple-300';
+            else div.className = 'text-gray-300';
+            div.innerHTML = `> ${msg}`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+            
+            // Limit log items to 15
+            while(container.children.length > 15) { container.removeChild(container.firstChild); }
+        }
+
+        function showOverlay(show) { document.getElementById('overlay').classList.toggle('hidden', !show); }
+        function hideAllModals() {
+            ['start-choice-modal', 'reward-modal', 'choice-modal', 'gameover-modal', 'module-manage-modal'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+        }
+
+        function shuffle(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function generateDeck() {
+            let suits = ['♠', '♥', '♦', '♣'];
+            let numbers = [1, 2, 3, 4, 5, 'K'];
+            let deck = [];
+            suits.forEach(s => { numbers.forEach(n => { deck.push({suit: s, num: n, id: Math.random().toString(36).substr(2, 9)}); }); });
+            return shuffle(deck);
+        }
+
+        function drawCards(amount) {
+            let drawn = [];
+            for(let i=0; i<amount; i++) {
+                if(player.deck.length === 0) {
+                    if(player.discard.length === 0) break;
+                    log('덱을 다시 섞습니다.', 'system');
+                    player.deck = shuffle([...player.discard]);
+                    player.discard = [];
+                }
+                drawn.push(player.deck.pop());
+            }
+            return drawn;
+        }
+
+        function initGame() {
+            player = { hp: 60, maxHp: 60, weapons: [], modules: [], inventoryModules: [], deck: generateDeck(), discard: [], hand: [], keepSlot: null, selectedCardIndices: [], rerolls: 0, baseRerolls: 1, status: { bleed: 0 }, combatState: {} };
+            stage = 1;
+            showOverlay(true); hideAllModals(); document.getElementById('start-choice-modal').classList.remove('hidden');
+            
+            const startWpns = ['club', 'thorn', 'eclipse'];
+            const container = document.getElementById('start-choice-container'); container.innerHTML = '';
+            document.getElementById('start-modal-title').innerText = "시작 무기 선택";
+            startWpns.forEach(wId => {
+                let w = WEAPONS_DB[wId]; const btn = document.createElement('button');
+                btn.className = 'pixel-btn py-3 px-4 flex flex-col items-center hover:bg-gray-700';
+                btn.innerHTML = `<span class="text-blue-300 font-bold">${w.name}</span><span class="text-xs text-gray-400 mt-1">[${w.reqCount}${w.reqType==='straight'?'스트레이트':w.reqType==='flush'?'플러시':'트리플'}] ${w.effectDesc(1)}</span>`;
+                btn.onclick = () => {
+                    player.weapons.push({id: wId, level: 1});
+                    log(`[${w.name}]을(를) 선택했습니다.`, 'system');
+                    showStartModuleChoice();
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function showStartModuleChoice() {
+            document.getElementById('start-modal-title').innerText = "시작 모듈 선택";
+            const container = document.getElementById('start-choice-container'); container.innerHTML = '';
+            
+            const btn1 = document.createElement('button');
+            btn1.className = 'pixel-btn py-3 px-4 flex flex-col items-center hover:bg-gray-700';
+            btn1.innerHTML = `<span class="text-purple-300 font-bold">미니멀리스트</span><span class="text-xs text-gray-400 mt-1">${MODULES_DB['minimalist'].desc}</span>`;
+            btn1.onclick = () => { player.modules.push('minimalist'); log('미니멀리스트 모듈 장착.', 'system'); finishStart(); };
+            container.appendChild(btn1);
+
+            const btn2 = document.createElement('button');
+            btn2.className = 'pixel-btn py-3 px-4 flex flex-col items-center hover:bg-gray-700';
+            btn2.innerHTML = `<span class="text-purple-300 font-bold">비상 탈출구</span><span class="text-xs text-gray-400 mt-1">${MODULES_DB['emergency_exit'].desc}</span>`;
+            btn2.onclick = () => { player.modules.push('emergency_exit'); log('비상 탈출구 모듈 장착.', 'system'); finishStart(); };
+            container.appendChild(btn2);
+        }
+
+        function finishStart() {
+            hideAllModals(); showOverlay(false);
+            startStage();
+        }
+
+        function startStage() {
+            document.getElementById('ui-stage').innerText = stage;
+            player.combatState = { emergencyUsed: false, overloadCooldown: 0, drawPenalty: 0, minimalistHeart: false, firstFiveUsedThisTurn: false, activeModulesUsed: {} };
+            spawnEnemies();
+            log(`=== 스테이지 ${stage} 시작 ===`, 'system');
+            startPlayerTurn();
+        }
+
+        function spawnEnemies() {
+            enemies = [];
+            moduleDropEarned = false;
+            let diff = stage <= 3 ? 1 : stage <= 7 ? 2 : stage <= 10 ? 3 : 4;
+            let table = ENCOUNTERS[diff];
+            let spawnList = table[Math.floor(Math.random() * table.length)];
+            
+            let hasModuleEnemy = Math.random() < 0.3;
+            let hasHealEnemy = Math.random() < 0.1 && !hasModuleEnemy; // Don't stack both
+
+            spawnList.forEach((mId, index) => {
+                let base = MONSTERS[mId];
+                let enemy = {
+                    id: mId, name: base.name, hp: base.maxHp, maxHp: base.maxHp,
+                    pattern: base.pattern, turnIdx: 0,
+                    status: { burn: 0, stun: false }, armor: 0, str: 0,
+                    isHeal: false, isModule: false
+                };
+
+                if (hasHealEnemy && index === spawnList.length - 1) {
+                    enemy.isHeal = true; enemy.name = "축복받은 " + enemy.name;
+                } else if (hasModuleEnemy && index === spawnList.length - 1) {
+                    enemy.isModule = true; enemy.name = "코어를 품은 " + enemy.name;
+                }
+                enemies.push(enemy);
+            });
+            updateEnemyUI();
+        }
+
+        function updateEnemyUI() {
+            const container = document.getElementById('enemies-container'); container.innerHTML = '';
+            enemies.forEach((enemy, index) => {
+                const div = document.createElement('div');
+                let targetClass = index === 0 ? 'enemy-target' : 'opacity-80 scale-90';
+                div.className = `enemy-card pixel-box flex-1 max-w-[150px] p-2 flex flex-col items-center justify-center relative ${targetClass}`;
+                div.id = `enemy-${index}`;
+                
+                let nameColor = enemy.isHeal ? 'text-green-400' : enemy.isModule ? 'text-purple-400' : 'text-red-400';
+                let specialIcon = enemy.isHeal ? '<span class="absolute top-1 left-1 text-green-400 text-xs animate-pulse">✚</span>' : enemy.isModule ? '<span class="absolute top-1 right-1 text-purple-400 text-xs animate-pulse">⚙️</span>' : '';
+                
+                let intent = '?';
+                let stats = [];
+                if(enemy.armor > 0) stats.push(`<span class="text-blue-300">방어 ${enemy.armor}</span>`);
+                if(enemy.str > 0) stats.push(`<span class="text-red-300">힘 ${enemy.str}</span>`);
+                if(enemy.status.burn > 0) stats.push(`<span class="text-orange-500">🔥${enemy.status.burn}</span>`);
+                if(enemy.status.stun) stats.push(`<span class="text-yellow-400">💫기절</span>`);
+                let statsHtml = stats.length > 0 ? `<div class="text-[10px] mt-1 flex gap-1 flex-wrap justify-center">${stats.join(' ')}</div>` : '';
+
+                div.innerHTML = `
+                    ${specialIcon}
+                    <div class="text-xs md:text-sm font-bold ${nameColor} text-center leading-tight mb-1">${enemy.name}</div>
+                    <div class="w-full bg-gray-800 h-2 md:h-3 border border-gray-600 relative mt-1">
+                        <div class="h-full bg-red-600" style="width: ${(enemy.hp/enemy.maxHp)*100}%"></div>
+                    </div>
+                    <div class="text-[10px] text-gray-300 mt-1">${enemy.hp}/${enemy.maxHp}</div>
+                    ${statsHtml}
+                    <div class="absolute -bottom-3 bg-[#333] border border-gray-500 px-2 py-0.5 text-xs text-yellow-300 rounded shadow-md">${intent}</div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function startPlayerTurn() {
+            gameState = 'PLAYER_TURN';
+            player.selectedCardIndices = [];
+            player.combatState.firstFiveUsedThisTurn = false;
+            
+            // Draw Penalty from Overload
+            let drawAmount = 6 - player.hand.length;
+            if (player.combatState.drawPenalty > 0) {
+                drawAmount = Math.min(drawAmount, player.combatState.drawPenalty);
+                player.combatState.drawPenalty = 0;
+                log('과부하 칩의 부작용으로 이번 턴 드로우가 제한됩니다.', 'system');
+            }
+            
+            // Spade Loader
+            if (player.modules.includes('spade_loader')) {
+                let sIdx = player.deck.findIndex(c => c.suit === '♠');
+                if (sIdx > -1) {
+                    player.hand.push(player.deck.splice(sIdx, 1)[0]);
+                    drawAmount--; log('[지정 칩] 덱에서 스페이드를 확정 드로우했습니다.', 'system');
+                }
+            }
+
+            // Minimalist effect
+            if (player.combatState.minimalistHeart) {
+                player.combatState.minimalistHeart = false;
+                player.hand.push({suit: '♥', num: 3, id: 'min_heart'});
+                drawAmount--; log('[미니멀리스트] 지난 턴 조건을 만족하여 하트 3을 얻었습니다.', 'system');
+            }
+
+            if(drawAmount > 0) {
+                let drawn = drawCards(drawAmount);
+                player.hand.push(...drawn);
+            }
+
+            player.rerolls = player.baseRerolls;
+            if(player.combatState.overloadCooldown > 0) player.combatState.overloadCooldown--;
+
+            // Holo-Clone
+            if (player.modules.includes('holo_clone') && player.hand.length > 0) {
+                let randomIdx = Math.floor(Math.random() * player.hand.length);
+                let targetCard = player.hand[randomIdx];
+                player.hand.push({...targetCard, id: targetCard.id+'_clone', isClone: true});
+                log(`[홀로그램 복제기] ${targetCard.suit}${targetCard.num} 카드를 임시 복제했습니다.`, 'system');
+            }
+
+            updateUI();
+        }
+
+        function updateUI() {
+            document.getElementById('player-hp-bar').style.width = `${(player.hp/player.maxHp)*100}%`;
+            document.getElementById('player-hp-text').innerText = `${player.hp}/${player.maxHp}`;
+            document.getElementById('ui-deck-count').innerText = `덱: ${player.deck.length}장 | 무덤: ${player.discard.length}장`;
+            document.getElementById('ui-rerolls').innerText = player.rerolls;
+            
+            document.getElementById('btn-reroll').disabled = player.rerolls <= 0 || gameState !== 'PLAYER_TURN';
+            document.getElementById('btn-attack').disabled = player.selectedCardIndices.length === 0 || gameState !== 'PLAYER_TURN';
+            document.getElementById('btn-endturn').disabled = gameState !== 'PLAYER_TURN';
+
+            const wContainer = document.getElementById('weapons-container'); wContainer.innerHTML = '';
+            player.weapons.forEach(w => {
+                let wInfo = WEAPONS_DB[w.id];
+                const div = document.createElement('div');
+                div.className = `flex-1 pixel-box p-2 flex flex-col justify-center items-center text-center ${isWeaponActive(w) ? 'border-yellow-400 bg-yellow-900/20' : ''}`;
+                div.innerHTML = `<div class="text-xs md:text-sm font-bold text-blue-300 mb-1">${wInfo.name} <span class="text-[10px] text-yellow-500">LV.${w.level}</span></div>
+                                 <div class="text-[10px] text-gray-400">[${wInfo.reqCount}${wInfo.reqType==='straight'?'스트레이트':wInfo.reqType==='flush'?'플러시':'트리플'}]</div>
+                                 <div class="text-[10px] text-orange-300 mt-1">${wInfo.effectDesc(w.level)}</div>`;
+                wContainer.appendChild(div);
+            });
+
+            renderHand();
+            renderModules();
+            updateEnemyUI();
+        }
+
+        function renderHand() {
+            const container = document.getElementById('hand-container'); container.innerHTML = '';
+            player.hand.forEach((card, index) => {
+                const div = document.createElement('div');
+                let colorClass = card.suit==='♠'?'suit-spade':card.suit==='♥'?'suit-heart':card.suit==='♦'?'suit-diamond':'suit-club';
+                let selClass = player.selectedCardIndices.includes(index) ? 'selected' : '';
+                let cloneMark = card.isClone ? '<div class="absolute -top-2 text-[8px] text-purple-500 bg-white px-1 border border-purple-500">CLONE</div>' : '';
+                div.className = `card ${colorClass} ${selClass}`;
+                div.innerHTML = `${cloneMark}<div class="text-sm md:text-lg">${card.suit}</div><div class="text-lg md:text-2xl">${card.num}</div>`;
+                div.onclick = () => selectCard(index, 'hand');
+                container.appendChild(div);
+            });
+
+            if (player.modules.includes('keep_slot')) {
+                const div = document.createElement('div');
+                div.className = 'card ml-2 border-dashed border-purple-500 bg-[#222] text-purple-400 ' + (player.selectedCardIndices.includes('keep') ? 'selected' : '');
+                if (player.keepSlot) {
+                    let card = player.keepSlot;
+                    let colorClass = card.suit==='♠'?'suit-spade':card.suit==='♥'?'suit-heart':card.suit==='♦'?'suit-diamond':'suit-club';
+                    div.innerHTML = `<div class="absolute -top-3 text-[10px] text-purple-400 bg-black px-1">KEEP</div><div class="text-sm md:text-lg ${colorClass}">${card.suit}</div><div class="text-lg md:text-2xl ${colorClass}">${card.num}</div>`;
+                } else {
+                    div.innerHTML = `<div class="text-[10px]">빈 슬롯</div>`;
+                }
+                div.onclick = () => selectCard('keep', 'keep');
+                container.appendChild(div);
+            }
+        }
+
+        function selectCard(index, source) {
+            if (gameState !== 'PLAYER_TURN' && gameState !== 'MODULE_ACT') return;
+            let id = source === 'keep' ? 'keep' : index;
+            let pos = player.selectedCardIndices.indexOf(id);
+            if (pos > -1) player.selectedCardIndices.splice(pos, 1);
+            else player.selectedCardIndices.push(id);
+            updateUI();
+        }
+
+        function handleReroll() {
+            if (player.rerolls <= 0 || player.selectedCardIndices.length === 0) return;
+            if (player.modules.includes('one_way') && player.selectedCardIndices.length > 1) {
+                log(`[외길 인생] 리롤은 최대 1장만 선택 가능합니다.`, 'system'); return;
+            }
+
+            player.rerolls--;
+            
+            if (player.modules.includes('reroll_battery') && Math.random() < 0.5) {
+                player.rerolls++; log(`[리롤 배터리] 리롤권을 돌려받았습니다!`, 'heal');
+            }
+
+            let sortedIdx = player.selectedCardIndices.filter(i => i !== 'keep').sort((a,b)=>b-a);
+            let discardedCards = [];
+            sortedIdx.forEach(i => discardedCards.push(player.hand.splice(i, 1)[0]));
+            if(player.selectedCardIndices.includes('keep') && player.keepSlot) { discardedCards.push(player.keepSlot); player.keepSlot = null; }
+            
+            player.deck.unshift(...discardedCards); // Put at bottom of deck (unshift)
+            let drawn = drawCards(discardedCards.length);
+            
+            drawn.forEach(c => {
+                if (player.selectedCardIndices.includes('keep') && !player.keepSlot) player.keepSlot = c;
+                else player.hand.push(c);
+            });
+
+            player.selectedCardIndices = [];
+            log(`${discardedCards.length}장 리롤 완료.`, 'system');
+            updateUI();
+        }
+
+        function getSelectedCards() {
+            let cards = player.selectedCardIndices.filter(i => i !== 'keep').map(i => player.hand[i]);
+            if (player.selectedCardIndices.includes('keep') && player.keepSlot) cards.push(player.keepSlot);
+            return cards;
+        }
+
+        function isWeaponActive(weapon) {
+            let cards = getSelectedCards();
+            if (cards.length === 0) return false;
+            
+            let reqCount = weapon.reqCount;
+            if (player.modules.includes('one_way')) reqCount = Math.max(1, reqCount - 1);
+
+            let hasKingsDecree = player.modules.includes('kings_decree') && !player.combatState.firstFiveUsedThisTurn;
+            let mappedCards = cards.map(c => {
+                if (hasKingsDecree && c.num === 5) return {...c, num: 'K'};
+                return c;
+            });
+
+            if (mappedCards.length < reqCount) return false;
+
+            if (weapon.reqType === 'triple') {
+                let counts = {}; mappedCards.forEach(c => counts[c.num] = (counts[c.num] || 0) + 1);
+                return Object.values(counts).some(v => v >= reqCount);
+            }
+            if (weapon.reqType === 'pair') {
+                let counts = {}; mappedCards.forEach(c => counts[c.num] = (counts[c.num] || 0) + 1);
+                let pairs = Object.values(counts).filter(v => v >= 2).length;
+                return pairs >= reqCount; // e.g. 1 pair reqCount = 1
+            }
+            if (weapon.reqType === 'flush') {
+                let counts = {}; mappedCards.forEach(c => counts[c.suit] = (counts[c.suit] || 0) + 1);
+                return Object.values(counts).some(v => v >= reqCount);
+            }
+            if (weapon.reqType === 'straight') {
+                let nums = mappedCards.map(c => c.num === 'K' ? 6 : c.num).sort((a,b)=>a-b);
+                let uniqueNums = [...new Set(nums)];
+                if(uniqueNums.length < reqCount) return false;
+                let maxConsecutive = 1; let current = 1;
+                for(let i=1; i<uniqueNums.length; i++) {
+                    if(uniqueNums[i] === uniqueNums[i-1] + 1) { current++; maxConsecutive = Math.max(maxConsecutive, current); }
+                    else current = 1;
+                }
+                return maxConsecutive >= reqCount;
+            }
+            return false;
+        }
+
+        function handleAttack() {
+            let activeWeapons = player.weapons.filter(w => isWeaponActive(w));
+            if (activeWeapons.length === 0) { log('조건을 만족하는 무기가 없습니다!', 'system'); return; }
+
+            let cards = getSelectedCards();
+            
+            // Check King's Decree activation
+            if (player.modules.includes('kings_decree') && !player.combatState.firstFiveUsedThisTurn && cards.some(c => c.num === 5)) {
+                log(`[왕의 칙령] 제출된 5가 K로 취급됩니다!`, 'system');
+                player.combatState.firstFiveUsedThisTurn = true;
+            }
+
+            let spadeCount = 0; let kCount = 0;
+            cards.forEach(c => {
+                if (c.suit === '♠') spadeCount++;
+                let effectiveNum = c.num;
+                // If King's Decree was just active for this set, treat 5s as K for engine
+                if (player.modules.includes('kings_decree') && player.combatState.firstFiveUsedThisTurn && effectiveNum === 5) effectiveNum = 'K';
+                if (effectiveNum === 'K') kCount++;
+            });
+
+            // Discard submitted cards
+            let sortedIdx = player.selectedCardIndices.filter(i => i !== 'keep').sort((a,b)=>b-a);
+            sortedIdx.forEach(i => player.discard.push(player.hand.splice(i, 1)[0]));
+            if (player.selectedCardIndices.includes('keep') && player.keepSlot) { player.discard.push(player.keepSlot); player.keepSlot = null; }
+            player.selectedCardIndices = [];
+
+            // Execute Attacks on the first enemy
+            let target = enemies[0];
+            activeWeapons.forEach(w => {
+                if(target.hp <= 0) return;
+                let wInfo = WEAPONS_DB[w.id];
+                let dmg = wInfo.baseDmg + (w.level - 1)*2;
+                
+                let isCrit = false;
+                if (w.id === 'thorn' && w.level >= 2 && Math.random()*100 <= (w.level-1)*10) { dmg *= 2; isCrit = true; }
+                
+                let actualDmg = Math.max(1, dmg - target.armor);
+                target.hp -= actualDmg;
+                
+                let critText = isCrit ? ' <span class="text-yellow-400">치명타!</span>' : '';
+                log(`${wInfo.name} 공격! ${target.name}에게 ${actualDmg} 피해.${critText}`, 'damage');
+                showFloatText(`-${actualDmg}`, 'enemy-0', isCrit ? '#facc15' : '#ef4444');
+
+                if (w.level >= 2) {
+                    if (w.id === 'greatsword') { target.status.bleed = (target.status.bleed || 0) + (w.level - 1); log(`${target.name} 출혈 ${w.level-1} 부여.`, 'system'); }
+                    if (w.id === 'eclipse') { target.status.burn = (target.status.burn || 0) + (w.level - 1); log(`${target.name} 화상 ${w.level-1} 부여.`, 'system'); }
+                    if (w.id === 'club') { let chance = 10 + (w.level-2)*15; if(Math.random()*100 <= chance) { target.status.stun = true; log(`${target.name} 기절!`, 'heal'); } }
+                    if (w.id === 'axe') { let heal = Math.floor(actualDmg * (15 + (w.level-2)*5) / 100); if(heal>0){ player.hp = Math.min(player.maxHp, player.hp + heal); log(`${heal} 체력 회복.`, 'heal'); } }
+                }
+            });
+
+            checkEnemyDeath();
+
+            // Emergency Exit
+            if (player.hand.length === 0 && player.modules.includes('emergency_exit') && !player.combatState.emergencyUsed) {
+                player.combatState.emergencyUsed = true;
+                let drawn = drawCards(3); player.hand.push(...drawn);
+                log(`[비상 탈출구] 패가 모두 소진되어 3장을 긴급 드로우합니다!`, 'system');
+            }
+
+            // Spade/K Engine
+            let engineDraws = spadeCount + kCount;
+            if (engineDraws > 0 && enemies.length > 0) {
+                log(`엔진 가동! ♠(${spadeCount}) K(${kCount}) -> ${engineDraws}장 드로우`, 'system');
+                let drawn = drawCards(engineDraws); player.hand.push(...drawn);
+            }
+
+            updateUI();
+        }
+
+        function checkEnemyDeath() {
+            if (enemies.length > 0 && enemies[0].hp <= 0) {
+                let dead = enemies.shift();
+                log(`${dead.name} 처치!`, 'system');
+                
+                if (dead.isHeal) {
+                    let healAmt = Math.floor(player.maxHp * 0.2);
+                    player.hp = Math.min(player.maxHp, player.hp + healAmt);
+                    log(`[회복 몬스터 처치] 체력을 ${healAmt} 회복했습니다!`, 'heal');
+                }
+                if (dead.isModule) {
+                    moduleDropEarned = true;
+                    log(`[모듈 몬스터 처치] 전투 종료 시 모듈을 획득합니다!`, 'system');
+                }
+            }
+            if (enemies.length === 0) {
+                gameState = 'REWARD';
+                setTimeout(showRewardPopup, 1000);
+            }
+        }
+
+        function handleEndTurn() {
+            player.selectedCardIndices = [];
+            // Remove clones
+            player.hand = player.hand.filter(c => !c.isClone);
+            
+            if (player.modules.includes('minimalist') && player.hand.length < 3) {
+                player.combatState.minimalistHeart = true;
+            }
+
+            gameState = 'ENEMY_TURN';
+            updateUI();
+            setTimeout(processEnemyTurns, 500);
+        }
+
+        function processEnemyTurns() {
+            let eIndex = 0;
+            function nextEnemy() {
+                if (eIndex >= enemies.length) { startPlayerTurn(); return; }
+                let enemy = enemies[eIndex];
+                
+                // Burn
+                if(enemy.status.burn > 0) {
+                    enemy.hp -= enemy.status.burn;
+                    log(`${enemy.name} 화상 데미지 ${enemy.status.burn}`, 'damage');
+                    showFloatText(`-${enemy.status.burn}`, `enemy-${eIndex}`, '#f97316');
+                    enemy.status.burn--;
+                    if(enemy.hp <= 0) { checkEnemyDeath(); return; } // died from burn, next enemy shifts to 0
+                }
+
+                if(enemy.status.stun) {
+                    log(`${enemy.name}은(는) 기절해 있습니다. 턴 스킵.`, 'system');
+                    enemy.status.stun = false;
+                } else {
+                    let act = enemy.pattern[enemy.turnIdx % enemy.pattern.length];
+                    enemy.turnIdx++;
+                    
+                    if(act.type === 'attack') {
+                        let finalDmg = act.val + enemy.str;
+                        if(enemy.status.bleed > 0) { finalDmg += enemy.status.bleed; log(`${enemy.name}의 출혈로 추가 데미지 발생.`, 'system'); }
+                        player.hp -= finalDmg;
+                        log(`${enemy.name}의 공격! 플레이어에게 ${finalDmg} 피해.`, 'enemy');
+                        document.body.classList.add('shake'); setTimeout(()=>document.body.classList.remove('shake'), 400);
+                    } else if(act.type === 'defend') {
+                        enemy.armor += act.val; log(`${enemy.name}이(가) 방어도를 ${act.val} 얻었습니다.`, 'enemy');
+                    } else if(act.type === 'buff') {
+                        enemy.str += act.val; log(`${enemy.name}이(가) 힘을 ${act.val} 얻었습니다.`, 'enemy');
+                    } else {
+                        log(`${enemy.name}은(는) 쉬고 있습니다.`, 'enemy');
+                    }
+                }
+
+                if (player.hp <= 0) {
+                    gameState = 'GAMEOVER';
+                    document.getElementById('gameover-stats').innerText = `도달 스테이지: ${stage}`;
+                    showOverlay(true); hideAllModals(); document.getElementById('gameover-modal').classList.remove('hidden');
+                    return;
+                }
+                
+                eIndex++;
+                updateEnemyUI();
+                setTimeout(nextEnemy, 800);
+            }
+            nextEnemy();
+        }
+
+        function showRewardPopup() {
+            showOverlay(true); hideAllModals(); document.getElementById('reward-modal').classList.remove('hidden');
+            const container = document.getElementById('reward-container'); container.innerHTML = '';
+            
+            if (moduleDropEarned) {
+                document.querySelector('#reward-modal h2').innerText = "전투 승리! 모듈 보상을 선택하세요";
+                let unownedMods = Object.values(MODULES_DB).filter(m => !player.modules.includes(m.id) && !player.inventoryModules.includes(m.id));
+                let selectedMods = shuffle([...unownedMods]).slice(0, 3);
+                
+                if (selectedMods.length === 0) { container.innerHTML = '<div class="text-center text-gray-400 col-span-3">더 이상 획득할 수 있는 모듈이 없습니다.</div>'; return; }
+                
+                selectedMods.forEach(m => {
+                    const btn = document.createElement('div');
+                    btn.className = 'pixel-btn p-4 flex flex-col items-center justify-center gap-2 h-32 hover:bg-gray-700 cursor-pointer';
+                    let titleColor = m.type === 'active' ? 'text-purple-300' : 'text-green-300';
+                    btn.innerHTML = `<div class="font-bold ${titleColor} text-sm md:text-base">${m.name}</div><div class="text-[10px] md:text-xs text-gray-400 text-center leading-tight">${m.desc}</div>`;
+                    btn.onclick = () => selectModuleReward(m.id);
+                    container.appendChild(btn);
+                });
+            } else {
+                document.querySelector('#reward-modal h2').innerText = "전투 승리! 무기 보상을 선택하세요";
+                for(let i=0; i<3; i++) {
+                    let isUpgrade = Math.random() < 0.3;
+                    const btn = document.createElement('div');
+                    btn.className = 'pixel-btn p-4 flex flex-col items-center justify-center gap-2 h-32 hover:bg-gray-700 cursor-pointer';
+                    
+                    if (isUpgrade && player.weapons.some(w => w.level < 6)) {
+                        let upWpn = shuffle([...player.weapons.filter(w=>w.level<6)])[0];
+                        let wInfo = WEAPONS_DB[upWpn.id];
+                        btn.innerHTML = `<div class="text-xs text-green-400 font-bold mb-1">무기 강화</div><div class="font-bold text-blue-300 text-sm md:text-base">${wInfo.name} <span class="text-yellow-400">LV.${upWpn.level} ▶ LV.${upWpn.level+1}</span></div><div class="text-[10px] text-gray-400 text-center">기본 데미지 +2<br>${wInfo.effectDesc(upWpn.level+1)}</div>`;
+                        btn.onclick = () => selectReward('upgrade', upWpn.id);
+                    } else {
+                        let newWpnLvl = Math.ceil(stage / 4);
+                        let unownedWpns = Object.keys(WEAPONS_DB).filter(id => !player.weapons.some(w=>w.id===id));
+                        if(unownedWpns.length === 0) continue;
+                        let newWpnId = shuffle(unownedWpns)[0]; let wInfo = WEAPONS_DB[newWpnId];
+                        btn.innerHTML = `<div class="text-xs text-yellow-400 font-bold mb-1">새로운 무기</div><div class="font-bold text-blue-300 text-sm md:text-base">${wInfo.name} <span class="text-yellow-400">LV.${newWpnLvl}</span></div><div class="text-[10px] md:text-xs text-gray-400">[ ${wInfo.reqCount}${wInfo.reqType==='straight'?'스트레이트':wInfo.reqType==='flush'?'플러시':'트리플'} ]</div>`;
+                        btn.onclick = () => selectReward('new_weapon', {id: newWpnId, level: newWpnLvl});
+                    }
+                    container.appendChild(btn);
+                }
+            }
+        }
+
+        function skipReward() { log('보상을 건너뛰었습니다.', 'system'); finishRewardSelection(); }
+
+        function selectReward(type, value) {
+            if(type === 'upgrade') {
+                let w = player.weapons.find(w => w.id === value); if(w) w.level++;
+                log(`${WEAPONS_DB[value].name} LV.${w.level} 강화!`, 'system'); finishRewardSelection();
+            } else if (type === 'new_weapon') {
+                if(player.weapons.length >= 2) { showWeaponReplaceChoice(value); return; }
+                else {
+                    player.weapons.push({id: value.id, level: value.level});
+                    log(`새 무기 [${WEAPONS_DB[value.id].name}] LV.${value.level} 획득!`, 'system'); finishRewardSelection();
+                }
+            }
+        }
+
+        function showWeaponReplaceChoice(newWeaponData) {
+            hideAllModals(); document.getElementById('choice-modal').classList.remove('hidden');
+            let newWInfo = WEAPONS_DB[newWeaponData.id];
+            document.getElementById('choice-title').innerHTML = `<span class="text-blue-400">[${newWInfo.name}]</span> <span class="text-yellow-400 text-sm">LV.${newWeaponData.level}</span> 획득!<br><span class="text-sm text-gray-400 mt-2 block">어떤 무기를 버리시겠습니까?</span>`;
+            const container = document.getElementById('choice-container'); container.innerHTML = '';
+
+            player.weapons.forEach((wpn, index) => {
+                let wInfo = WEAPONS_DB[wpn.id]; const btn = document.createElement('div');
+                btn.className = 'pixel-btn p-4 flex flex-col items-center justify-center gap-2 h-32 hover:bg-red-900/40 border-red-900 cursor-pointer';
+                btn.innerHTML = `<div class="font-bold text-red-400 animate-pulse">버리기</div><div class="text-sm text-gray-300">${wInfo.name} <span class="text-xs text-yellow-400">LV.${wpn.level}</span></div>`;
+                btn.onclick = () => { player.weapons.splice(index, 1); player.weapons.push({id: newWeaponData.id, level: newWeaponData.level}); log(`무기 교체 완료.`, 'system'); finishRewardSelection(); };
+                container.appendChild(btn);
+            });
+            const backBtn = document.createElement('div');
+            backBtn.className = 'pixel-btn p-4 flex flex-col items-center justify-center gap-2 h-32 hover:bg-gray-700 cursor-pointer';
+            backBtn.innerHTML = `<div class="font-bold text-gray-400">뒤로 가기</div>`;
+            backBtn.onclick = () => { hideAllModals(); document.getElementById('reward-modal').classList.remove('hidden'); };
+            container.appendChild(backBtn);
+        }
+
+        function selectModuleReward(modId) {
+            if(player.modules.length < 5) { player.modules.push(modId); log(`[${MODULES_DB[modId].name}] 획득!`, 'system'); finishRewardSelection(); }
+            else if (player.inventoryModules.length < 5) { player.inventoryModules.push(modId); log(`[${MODULES_DB[modId].name}] 보관소 획득!`, 'system'); finishRewardSelection(); }
+            else { showModuleReplaceChoice(modId); }
+        }
+
+        function showModuleReplaceChoice(newModId) {
+            hideAllModals(); document.getElementById('choice-modal').classList.remove('hidden');
+            let newModInfo = MODULES_DB[newModId];
+            document.getElementById('choice-title').innerHTML = `<span class="text-purple-400">[${newModInfo.name}]</span> 획득!<br><span class="text-sm text-gray-400 mt-2 block">슬롯이 가득 찼습니다. 영구히 버릴 모듈을 선택하세요.</span>`;
+            const container = document.getElementById('choice-container'); container.innerHTML = '';
+
+            const allMods = [...player.modules.map((id, index) => ({ id, type: 'equipped', index })), ...player.inventoryModules.map((id, index) => ({ id, type: 'inventory', index }))];
+            allMods.forEach(item => {
+                let mInfo = MODULES_DB[item.id]; const btn = document.createElement('div');
+                btn.className = 'pixel-btn p-3 flex flex-col items-center justify-center gap-1 h-36 hover:bg-red-900/40 border-red-900 cursor-pointer';
+                btn.innerHTML = `<div class="text-[10px] text-gray-500">[${item.type==='equipped'?'장착 중':'보관 중'}]</div><div class="font-bold text-red-400 animate-pulse">버리기</div><div class="text-sm text-gray-300">${mInfo.name}</div>`;
+                btn.onclick = () => {
+                    if (item.type === 'equipped') {
+                        if (item.id === 'keep_slot' && player.keepSlot) { player.discard.push(player.keepSlot); player.keepSlot = null; }
+                        player.modules.splice(item.index, 1); player.inventoryModules.push(newModId);
+                    } else {
+                        player.inventoryModules.splice(item.index, 1); player.inventoryModules.push(newModId);
+                    }
+                    log(`모듈 교체 완료.`, 'system'); finishRewardSelection();
+                };
+                container.appendChild(btn);
+            });
+            const backBtn = document.createElement('div');
+            backBtn.className = 'pixel-btn p-3 flex flex-col items-center justify-center gap-2 h-36 hover:bg-gray-700 cursor-pointer';
+            backBtn.innerHTML = `<div class="font-bold text-gray-400">포기하기</div>`;
+            backBtn.onclick = () => { log(`모듈 획득을 포기했습니다.`, 'system'); finishRewardSelection(); };
+            container.appendChild(backBtn);
+        }
+
+        function finishRewardSelection() {
+            hideAllModals(); showModuleManagement();
+        }
+
+        function showModuleManagement() {
+            gameState = 'MODULE_MANAGEMENT'; showOverlay(true); hideAllModals(); document.getElementById('module-manage-modal').classList.remove('hidden');
+            renderModuleManagement();
+        }
+
+        function renderModuleManagement() {
+            document.getElementById('equipped-count').innerText = player.modules.length;
+            document.getElementById('inventory-count').innerText = player.inventoryModules.length;
+
+            const eqContainer = document.getElementById('equipped-modules-container'); eqContainer.innerHTML = '';
+            player.modules.forEach((modId, index) => {
+                let mInfo = MODULES_DB[modId]; const div = document.createElement('div');
+                div.className = 'pixel-box p-3 cursor-pointer hover:border-yellow-500 flex justify-between items-center bg-gray-800';
+                div.innerHTML = `<div class="flex-1 overflow-hidden pr-2"><div class="text-sm font-bold ${mInfo.type==='active'?'text-purple-300':'text-green-300'}">${mInfo.name}</div><div class="text-[10px] text-gray-400">${mInfo.desc}</div></div><div class="text-xs text-red-400 font-bold shrink-0 border border-red-900 px-2 py-1">해제 ▶</div>`;
+                div.onclick = () => {
+                    if (player.inventoryModules.length >= 5) return;
+                    if (modId === 'keep_slot' && player.keepSlot) { player.discard.push(player.keepSlot); player.keepSlot = null; }
+                    player.modules.splice(index, 1); player.inventoryModules.push(modId); renderModuleManagement();
+                };
+                eqContainer.appendChild(div);
+            });
+
+            const invContainer = document.getElementById('inventory-modules-container'); invContainer.innerHTML = '';
+            player.inventoryModules.forEach((modId, index) => {
+                let mInfo = MODULES_DB[modId]; const div = document.createElement('div');
+                div.className = 'pixel-box p-3 cursor-pointer hover:border-yellow-500 flex justify-between items-center bg-gray-800';
+                div.innerHTML = `<div class="text-xs text-green-400 font-bold shrink-0 border border-green-700 px-2 py-1 mr-2">◀ 장착</div><div class="flex-1 text-right overflow-hidden"><div class="text-sm font-bold ${mInfo.type==='active'?'text-purple-300':'text-green-300'}">${mInfo.name}</div><div class="text-[10px] text-gray-400">${mInfo.desc}</div></div>`;
+                div.onclick = () => {
+                    if (player.modules.length >= 5) return;
+                    player.modules.push(player.inventoryModules.splice(index, 1)[0]); renderModuleManagement();
+                };
+                invContainer.appendChild(div);
+            });
+        }
+
+        function finishModuleManagement() {
+            hideAllModals(); showOverlay(false);
+            stage++; if(stage > MAX_STAGE) { alert("모든 스테이지 클리어!"); location.reload(); } else { startStage(); }
+        }
+
+        function renderModules() {
+            const container = document.getElementById('modules-container'); container.innerHTML = '';
+            const actionsContainer = document.getElementById('module-actions'); actionsContainer.innerHTML = '';
+            let hasActive = false;
+
+            player.modules.forEach(modId => {
+                let mInfo = MODULES_DB[modId];
+                const div = document.createElement('div');
+                div.className = `flex-1 pixel-box p-1 text-center text-[10px] md:text-xs font-bold ${mInfo.type==='active'?'text-purple-300 border-purple-900 bg-purple-900/20':'text-green-300 border-green-900 bg-green-900/20'}`;
+                div.innerText = mInfo.name;
+                container.appendChild(div);
+
+                if (mInfo.type === 'active') {
+                    hasActive = true;
+                    const btn = document.createElement('button');
+                    btn.className = 'pixel-btn py-1 px-2 text-[10px] md:text-xs text-purple-300 border-purple-700';
+                    btn.innerText = mInfo.name + ' 사용';
+                    
+                    if (modId === 'overload_chip' && player.combatState.overloadCooldown > 0) { btn.disabled = true; btn.innerText += `(쿨${player.combatState.overloadCooldown})`; }
+                    else if (player.combatState.activeModulesUsed[modId]) { btn.disabled = true; btn.innerText += '(완료)'; }
+                    
+                    btn.onclick = () => useActiveModule(modId);
+                    actionsContainer.appendChild(btn);
+                }
+            });
+            actionsContainer.classList.toggle('hidden', !hasActive);
+        }
+
+        function useActiveModule(modId) {
+            if (gameState !== 'PLAYER_TURN' || player.combatState.activeModulesUsed[modId]) return;
+            
+            if (modId === 'joker_chip') {
+                if(player.selectedCardIndices.length !== 1 || player.selectedCardIndices.includes('keep')) { log('조커 칩: 손패에서 1장을 선택하세요.', 'system'); return; }
+                let suit = prompt("변경할 문양을 입력하세요 (♠, ♥, ♦, ♣)", "♠");
+                if(['♠', '♥', '♦', '♣'].includes(suit)) {
+                    player.hand[player.selectedCardIndices[0]].suit = suit;
+                    player.combatState.activeModulesUsed[modId] = true; player.selectedCardIndices = []; updateUI(); log(`문양이 ${suit}로 변경되었습니다.`, 'system');
+                }
+            } else if (modId === 'tuning') {
+                if(player.selectedCardIndices.length !== 1 || player.selectedCardIndices.includes('keep')) { log('위상 조율기: 손패에서 1장을 선택하세요.', 'system'); return; }
+                let card = player.hand[player.selectedCardIndices[0]];
+                if(card.num === 'K') { log('K는 조율할 수 없습니다.', 'system'); return; }
+                let up = confirm("숫자를 올리시겠습니까? (취소 시 내림)");
+                card.num = up ? Math.min(5, card.num + 1) : Math.max(1, card.num - 1);
+                player.combatState.activeModulesUsed[modId] = true; player.selectedCardIndices = []; updateUI(); log(`숫자가 ${card.num}으로 조율되었습니다.`, 'system');
+            } else if (modId === 'overload_chip') {
+                player.rerolls++; player.combatState.drawPenalty = 5; player.combatState.overloadCooldown = 2;
+                player.combatState.activeModulesUsed[modId] = true; updateUI(); log('과부하 칩 가동! 리롤+1 (다음 턴 드로우 제한)', 'system');
+            }
+        }
+
+        function showFloatText(text, targetId, color) {
+            const target = document.getElementById(targetId); if(!target) return;
+            const floatDiv = document.createElement('div');
+            floatDiv.className = 'damage-float'; floatDiv.style.color = color; floatDiv.innerHTML = text;
+            floatDiv.style.left = (target.offsetLeft + target.offsetWidth/2 - 10) + 'px';
+            floatDiv.style.top = (target.offsetTop + target.offsetHeight/2 - 20) + 'px';
+            document.body.appendChild(floatDiv);
+            setTimeout(() => { if(document.body.contains(floatDiv)) document.body.removeChild(floatDiv); }, 1000);
+        }
+
+        window.onload = initGame;
+    </script>
+</body>
+</html>
