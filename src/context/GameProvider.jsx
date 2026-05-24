@@ -32,7 +32,20 @@ export function GameProvider({ children }) {
   const getState = useCallback(() => stateRef.current, []);
 
   const showFloatAtEnemy = useCallback(
-    (text, color) => showFloatText(text, window.innerWidth / 2 - 20, 80, color),
+    (text, color, enemyIndex = 0) => {
+      const el = document.getElementById(`enemy-${enemyIndex}`);
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        showFloatText(
+          text,
+          rect.left + rect.width / 2 - 20,
+          rect.top + rect.height / 2 - 20,
+          color
+        );
+      } else {
+        showFloatText(text, window.innerWidth / 2 - 20, 80, color);
+      }
+    },
     [showFloatText]
   );
 
@@ -102,6 +115,7 @@ export function GameProvider({ children }) {
       handleAttack: combat.handleAttack,
       handleDefend: combat.handleDefend,
       handleEndTurn: combat.handleEndTurn,
+      selectEnemy: combat.selectEnemy,
       useActiveModule,
       log,
       ...rewardHandlers,

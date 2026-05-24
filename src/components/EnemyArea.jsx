@@ -1,8 +1,18 @@
-export default function EnemyArea({ enemies }) {
+export default function EnemyArea({
+  enemies,
+  selectedEnemyIndex = 0,
+  canSelect = false,
+  onSelectEnemy,
+}) {
   return (
     <div className="h-32 md:h-40 w-full flex items-center justify-center gap-2 p-2 shrink-0 bg-[#111]">
       {enemies.map((enemy, index) => {
-        const targetClass = index === 0 ? 'enemy-target' : 'opacity-80 scale-90';
+        const isSelected = index === selectedEnemyIndex;
+        const targetClass = isSelected
+          ? 'enemy-target'
+          : enemies.length > 1
+            ? 'opacity-80 scale-90'
+            : '';
         const nameColor = enemy.isHeal
           ? 'text-green-400'
           : enemy.isModule
@@ -20,12 +30,31 @@ export default function EnemyArea({ enemies }) {
         if (enemy.status.burn > 0) stats.push(<span key="b" className="text-orange-500">🔥{enemy.status.burn}</span>);
         if (enemy.status.stun) stats.push(<span key="st" className="text-yellow-400">💫기절</span>);
 
+        const handleClick = () => {
+          if (canSelect && enemy.hp > 0) onSelectEnemy?.(index);
+        };
+
         return (
           <div
             key={`${enemy.id}-${index}`}
-            className={`enemy-card pixel-box flex-1 max-w-[150px] p-2 flex flex-col items-center justify-center relative ${targetClass}`}
+            id={`enemy-${index}`}
+            role={canSelect ? 'button' : undefined}
+            tabIndex={canSelect ? 0 : undefined}
+            onClick={handleClick}
+            onKeyDown={(e) => {
+              if (canSelect && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                handleClick();
+              }
+            }}
+            className={`enemy-card pixel-box flex-1 max-w-[150px] p-2 flex flex-col items-center justify-center relative ${targetClass} ${canSelect && enemy.hp > 0 ? 'cursor-pointer hover:border-yellow-500' : ''}`}
           >
             {specialIcon}
+            {isSelected && canSelect && (
+              <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] text-yellow-300 bg-black px-1 border border-yellow-600 whitespace-nowrap">
+                타겟
+              </span>
+            )}
             <div className={`text-xs md:text-sm font-bold ${nameColor} text-center leading-tight mb-1`}>
               {enemy.name}
             </div>

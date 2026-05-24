@@ -8,7 +8,8 @@ import Controls from './Controls';
 import Overlay from './Overlay';
 
 export default function GameLayout() {
-  const { meta, player, floats, initGame, useActiveModule, log, GAME_STATES } = useGame();
+  const { meta, player, floats, initGame, useActiveModule, log, selectEnemy, GAME_STATES } =
+    useGame();
 
   useEffect(() => {
     initGame();
@@ -60,7 +61,12 @@ export default function GameLayout() {
           {f.text}
         </div>
       ))}
-      <EnemyArea enemies={meta.enemies} />
+      <EnemyArea
+        enemies={meta.enemies}
+        selectedEnemyIndex={meta.selectedEnemyIndex ?? 0}
+        canSelect={meta.gameState === GAME_STATES.PLAYER_TURN && meta.enemies.length > 0}
+        onSelectEnemy={selectEnemy}
+      />
       <CombatLog />
       <PlayerPanel
         player={player}

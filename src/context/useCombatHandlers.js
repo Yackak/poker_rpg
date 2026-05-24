@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { buildAttackResult, executeReroll, executeDefend, GAME_STATES } from './gameEngine';
 import { applyEndTurnCleanup, applyPlayerTurnStart } from '../game/playerTurn';
 import { processSingleEnemyTurn, handleEnemyDeath } from '../game/enemyTurn';
+import { normalizeSelectedEnemyIndex } from '../game/enemyTarget';
 
 export function useCombatHandlers(setPlayer, setMeta, log, showFloatAtEnemy, onVictory, getState) {
   const toggleCard = useCallback(
@@ -35,23 +36,47 @@ export function useCombatHandlers(setPlayer, setMeta, log, showFloatAtEnemy, onV
     });
   }, [getState, log, setPlayer]);
 
+  const selectEnemy = useCallback(
+    (index) => {
+      setMeta((m) => {
+        if (m.gameState !== GAME_STATES.PLAYER_TURN) return m;
+        if (!m.enemies[index] || m.enemies[index].hp <= 0) return m;
+        return { ...m, selectedEnemyIndex: index };
+      });
+    },
+    [setMeta]
+  );
+
   const handleAttack = useCallback(() => {
     const { player: p, meta: m } = getState();
     const copy = structuredClone(p);
     const enemiesCopy = structuredClone(m.enemies);
-    const result = buildAttackResult(copy, enemiesCopy, log, showFloatAtEnemy);
+    const targetIndex = normalizeSelectedEnemyIndex(enemiesCopy, m.selectedEnemyIndex ?? 0);
+    const result = buildAttackResult(copy, enemiesCopy, targetIndex, log, (text, color) =>
+      showFloatAtEnemy(text, color, targetIndex)
+    );
     if (!result) return;
 
     let moduleDrop = m.moduleDropEarned;
+    let nextEnemies = enemiesCopy;
+    let nextTargetIndex = targetIndex;
+
     if (result.targetDead && enemiesCopy.length > 0) {
-      const dead = enemiesCopy.shift();
+      const dead = enemiesCopy.splice(result.targetIndex, 1)[0];
       const deathResult = handleEnemyDeath(dead, copy, log);
       if (deathResult.moduleDrop) moduleDrop = true;
+      nextEnemies = enemiesCopy;
+      nextTargetIndex = normalizeSelectedEnemyIndex(enemiesCopy, result.targetIndex);
     }
 
     setPlayer(copy);
-    setMeta({ ...m, enemies: enemiesCopy, moduleDropEarned: moduleDrop });
-    if (enemiesCopy.length === 0) {
+    setMeta({
+      ...m,
+      enemies: nextEnemies,
+      selectedEnemyIndex: nextTargetIndex,
+      moduleDropEarned: moduleDrop,
+    });
+    if (nextEnemies.length === 0) {
       setTimeout(() => onVictory(moduleDrop), 1000);
     }
   }, [getState, log, showFloatAtEnemy, onVictory, setMeta, setPlayer]);
@@ -69,6 +94,10 @@ export function useCombatHandlers(setPlayer, setMeta, log, showFloatAtEnemy, onV
           gameState: GAME_STATES.PLAYER_TURN,
           enemies: currentEnemies,
           moduleDropEarned: moduleDrop,
+          selectedEnemyIndex: normalizeSelectedEnemyIndex(
+            currentEnemies,
+            m.selectedEnemyIndex ?? 0
+          ),
         }));
         setPlayer((p) => {
           const copy = structuredClone({ ...p, ...currentPlayer });
@@ -87,7 +116,11 @@ export function useCombatHandlers(setPlayer, setMeta, log, showFloatAtEnemy, onV
         const result = processSingleEnemyTurn(enemy, currentPlayer, log);
 
         if (result.events.some((e) => e.type === 'burn')) {
-          showFloatAtEnemy(`-${result.events.find((e) => e.type === 'burn').damage}`, '#f97316');
+          showFloatAtEnemy(
+            `-${result.events.find((e) => e.type === 'burn').damage}`,
+            '#f97316',
+            idx
+          );
         }
         if (result.events.some((e) => e.type === 'attack')) {
           setMeta((m) => ({ ...m, shake: true }));
@@ -103,7 +136,15 @@ export function useCombatHandlers(setPlayer, setMeta, log, showFloatAtEnemy, onV
           const dead = currentEnemies.splice(idx, 1)[0];
           const deathResult = handleEnemyDeath(dead, currentPlayer, log);
           if (deathResult.moduleDrop) moduleDrop = true;
-          setMeta((m) => ({ ...m, enemies: currentEnemies, moduleDropEarned: moduleDrop }));
+          setMeta((m) => ({
+            ...m,
+            enemies: currentEnemies,
+            moduleDropEarned: moduleDrop,
+            selectedEnemyIndex: normalizeSelectedEnemyIndex(
+              currentEnemies,
+              m.selectedEnemyIndex ?? 0
+            ),
+          }));
           if (currentEnemies.length === 0) {
             setTimeout(() => onVictory(moduleDrop), 500);
             return;
@@ -135,5 +176,5 @@ export function useCombatHandlers(setPlayer, setMeta, log, showFloatAtEnemy, onV
     });
   }, [log, runEnemyTurns, setMeta, setPlayer]);
 
-  return { toggleCard, handleReroll, handleAttack, handleDefend, handleEndTurn };
+  return { toggleCard, handleReroll, handleAttack, handleDefend, handleEndTurn, selectEnemy };
 }

@@ -25,11 +25,14 @@ import { replaceModule, swapModuleToEquipped, swapModuleToInventory } from '../g
 import { useJokerChip, useTuning, useOverloadChip } from '../game/moduleLogic';
 import { generateDeck } from '../utils/deck';
 
+import { normalizeSelectedEnemyIndex } from '../game/enemyTarget';
+
 export function createInitialMeta() {
   return {
     stage: 1,
     gameState: GAME_STATES.START,
     enemies: [],
+    selectedEnemyIndex: 0,
     moduleDropEarned: false,
     startStep: 'weapon',
     modal: 'start',
@@ -41,7 +44,7 @@ export function createInitialMeta() {
   };
 }
 
-export function buildAttackResult(player, enemies, log, showFloat) {
+export function buildAttackResult(player, enemies, targetIndex, log, showFloat) {
   const selected = getSelectedCards(player);
   const activeWeapons = player.weapons.filter((w) =>
     isWeaponActive(w, selected, player.modules, player.combatState)
@@ -49,6 +52,13 @@ export function buildAttackResult(player, enemies, log, showFloat) {
 
   if (activeWeapons.length === 0) {
     log('조건을 만족하는 무기가 없습니다!', 'system');
+    return null;
+  }
+
+  const idx = normalizeSelectedEnemyIndex(enemies, targetIndex);
+  const target = enemies[idx];
+  if (!target || target.hp <= 0) {
+    log('공격할 적이 없습니다!', 'system');
     return null;
   }
 
@@ -64,7 +74,6 @@ export function buildAttackResult(player, enemies, log, showFloat) {
   const submitted = [...selected];
   discardSelectedCards(player);
 
-  const target = enemies[0];
   const hits = [];
 
   activeWeapons.forEach((w) => {
@@ -109,7 +118,7 @@ export function buildAttackResult(player, enemies, log, showFloat) {
   applyPostAttackModules(player, enemies, submitted, activeWeapons, log);
   applyEngineDraw(player, submitted, log);
 
-  return { targetDead: target && target.hp <= 0 };
+  return { targetDead: target.hp <= 0, targetIndex: idx };
 }
 
 export function processEnemyQueue(enemies, player, log, showFloat, onDone) {
