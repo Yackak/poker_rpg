@@ -1,7 +1,7 @@
 import { useGame } from '../context/GameContext';
 import { getLogClass } from '../hooks/useCombatLog';
 import DeckDiscardViewer from './DeckDiscardViewer';
-
+import { ROUNDS_PER_STAGE } from '../game/constants';
 export default function CombatLog() {
   const { logs, player, meta } = useGame();
   const usedCards = player.combatState?.cardsUsedThisTurn ?? [];
@@ -11,6 +11,14 @@ export default function CombatLog() {
       <div className="flex justify-between items-start mb-1 shrink-0 gap-2">
         <div className="text-xs text-gray-400 shrink-0">
           스테이지 <span className="text-yellow-400 text-sm">{meta.stage}</span>
+          {' · '}
+          {meta.round >= ROUNDS_PER_STAGE ? (
+            <span className="text-red-400 text-sm">최종 보스</span>
+          ) : (
+            <>
+              라운드 <span className="text-yellow-400 text-sm">{meta.round}</span>
+            </>
+          )}
         </div>
         <DeckDiscardViewer
           usedCards={usedCards}

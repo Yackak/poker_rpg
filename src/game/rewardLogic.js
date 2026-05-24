@@ -1,7 +1,7 @@
 import { shuffle } from '../utils/shuffle';
 import { WEAPONS_DB, getReqLabel } from '../data/weapons';
 import { MODULES_DB } from '../data/modules';
-import { DEFAULT_MODULE_TIER_WEIGHTS } from './constants';
+import { DEFAULT_MODULE_TIER_WEIGHTS, TIER_SHIFT_INTERVAL } from './constants';
 
 function buildUpgradeOptions(player) {
   return player.weapons
@@ -33,13 +33,13 @@ function buildNewWeaponOptions(player, stage) {
 }
 
 /**
- * Stage clear (= 보스 처치) 시 legend 풀. 일반 전투 보상 추가 시 `{ isBossVictory: false }` 와 등급 확률을 연동.
+ * @param {{ isBossVictory?: boolean, tierWeights?: typeof DEFAULT_MODULE_TIER_WEIGHTS }} moduleRewardOpts
  */
 export function buildVictoryRewards(
   player,
   stage,
   weaponBonus = false,
-  moduleRewardOpts = { isBossVictory: true }
+  moduleRewardOpts = { isBossVictory: false }
 ) {
   const moduleOptions = generateModuleRewards(player, moduleRewardOpts).map((m) => ({
     type: 'module',
@@ -53,41 +53,79 @@ export function buildVictoryRewards(
   return { moduleOptions, weaponOptions };
 }
 
-export function generateModuleRewards(player, opts = {}) {
-  const isBossVictory = opts.isBossVictory !== false;
+export function rollModuleTier(weights = DEFAULT_MODULE_TIER_WEIGHTS) {
+  const roll = Math.random() * 100;
+  if (roll < weights.normal) return 'normal';
+  if (roll < weights.normal + weights.rare) return 'rare';
+  return 'epic';
+}
 
-  let pool = Object.values(MODULES_DB).filter(
+function pickFromPool(pool, usedIds) {
+  const available = pool.filter((m) => !usedIds.has(m.id));
+  if (available.length === 0) return null;
+  return shuffle([...available])[0];
+}
+
+function pickNormalModuleRewards(unowned, weights, count = 3) {
+  const picks = [];
+  const usedIds = new Set();
+  const nonLegend = unowned.filter((m) => m.rarity !== 'legend');
+
+  for (let i = 0; i < count; i++) {
+    const tier = rollModuleTier(weights);
+    let pick =
+      pickFromPool(
+        nonLegend.filter((m) => m.rarity === tier),
+        usedIds
+      ) ?? pickFromPool(nonLegend, usedIds);
+
+    if (!pick) break;
+    picks.push(pick);
+    usedIds.add(pick.id);
+  }
+
+  return picks;
+}
+
+export function generateModuleRewards(player, opts = {}) {
+  const isBossVictory = opts.isBossVictory === true;
+  const weights = opts.tierWeights ?? DEFAULT_MODULE_TIER_WEIGHTS;
+
+  const unowned = Object.values(MODULES_DB).filter(
     (m) => !player.modules.includes(m.id) && !player.inventoryModules.includes(m.id)
   );
 
   if (isBossVictory) {
-    pool = pool.filter((m) => m.rarity === 'legend');
+    const pool = unowned.filter((m) => m.rarity === 'legend');
+    return shuffle([...pool]).slice(0, 3);
   }
 
-  return shuffle([...pool]).slice(0, 3);
+  return pickNormalModuleRewards(unowned, weights, 3);
 }
 
-/** 매 3전투마다 호출하면 될 드리프트 (추후 일반 전투 보상 연동용). normal -6%, rare +5%, epic +1%. */
+/** 매 3전투마다 normal -6%, rare +5%, epic +1%. */
 export function driftModuleTierWeights(weights = DEFAULT_MODULE_TIER_WEIGHTS) {
-  const next = {
+  return {
     normal: Math.max(0, weights.normal - 6),
     rare: Math.min(100, weights.rare + 5),
     epic: Math.min(100, weights.epic + 1),
   };
-  return next;
 }
 
-/**
- * 일반 전투 보상용 등급 굴림 스텁. 추후 확률/드리프트를 연결하세요.
- * @returns {'normal' | 'rare' | 'epic'}
- */
-export function rollModuleTier(_weights = DEFAULT_MODULE_TIER_WEIGHTS) {
-  return 'normal';
-}
+export function advanceTierWeightsAfterBattle(battlesSinceTierShift, moduleTierWeights, isBossVictory) {
+  if (isBossVictory) {
+    return { moduleTierWeights, battlesSinceTierShift };
+  }
 
-/** 일반 전투에서 선택지 3개 뽑기 스텁 (등급 풀·드리프트 연동 예정). */
-export function generateNormalFightModuleRewards(_player, _weights = DEFAULT_MODULE_TIER_WEIGHTS) {
-  return [];
+  let nextBattles = battlesSinceTierShift + 1;
+  let nextWeights = moduleTierWeights;
+
+  if (nextBattles >= TIER_SHIFT_INTERVAL) {
+    nextWeights = driftModuleTierWeights(moduleTierWeights);
+    nextBattles = 0;
+  }
+
+  return { moduleTierWeights: nextWeights, battlesSinceTierShift: nextBattles };
 }
 
 export function generateWeaponRewards(player, stage) {

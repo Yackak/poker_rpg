@@ -1,4 +1,7 @@
 export const MAX_STAGE = 10;
+export const ROUNDS_PER_STAGE = 10;
+export const BOSS_ROUND = ROUNDS_PER_STAGE;
+export const TIER_SHIFT_INTERVAL = 3;
 
 export const GAME_STATES = {
   START: 'START',

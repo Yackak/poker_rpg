@@ -1,14 +1,31 @@
 import { useGame } from '../../context/GameContext';
 
+const RARITY_LABEL = {
+  normal: '일반',
+  rare: '레어',
+  epic: '에픽',
+  legend: '레전드',
+};
+
+const RARITY_COLOR = {
+  normal: 'text-gray-300',
+  rare: 'text-blue-300',
+  epic: 'text-purple-300',
+  legend: 'text-yellow-300',
+};
+
 export default function RewardModal() {
   const { meta, pickReward, skipReward } = useGame();
 
   if (meta.modal !== 'reward') return null;
 
   const isWeaponPhase = meta.rewardPhase === 'weapon';
+  const isBossVictory = meta.isBossVictory;
   const title = isWeaponPhase
     ? '보너스! 무기 보상을 선택하세요'
-    : '전투 승리! 모듈을 선택하세요';
+    : isBossVictory
+      ? '최종 보스 격파! 레전드 모듈을 선택하세요'
+      : '전투 승리! 모듈을 선택하세요';
   const skipLabel = isWeaponPhase ? '무기 보너스 건너뛰기' : '모듈 건너뛰기';
 
   return (
@@ -36,6 +53,9 @@ export default function RewardModal() {
             >
               {option.type === 'module' ? (
                 <>
+                  <div className={`text-[10px] font-bold ${RARITY_COLOR[option.data.rarity] || 'text-gray-400'}`}>
+                    {RARITY_LABEL[option.data.rarity] || option.data.rarity}
+                  </div>
                   <div className="font-bold text-green-300 text-sm md:text-base">{option.data.name}</div>
                   <div className="text-[10px] md:text-xs text-gray-400 text-center">{option.data.desc}</div>
                 </>

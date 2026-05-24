@@ -50,14 +50,14 @@ export function GameProvider({ children }) {
     [showFloatText]
   );
 
-  const { initGame, startStage, selectStartWeapon, selectStartModule } = useStartActions(
+  const { initGame, startRound, selectStartWeapon, selectStartModule } = useStartActions(
     setPlayer,
     setMeta,
     log,
     clearLogs
   );
 
-  const rewardHandlers = useRewardHandlers(player, meta, setPlayer, setMeta, log, startStage);
+  const rewardHandlers = useRewardHandlers(player, meta, setPlayer, setMeta, log, startRound);
 
   const combat = useCombatHandlers(
     setPlayer,
@@ -110,9 +110,9 @@ export function GameProvider({ children }) {
       logs,
       floats,
       initGame,
-      startStage,
+      startRound,
       selectStartWeapon: (id, name) => selectStartWeapon(id, name),
-      selectStartModule: (id, name) => selectStartModule(id, name, startStage),
+      selectStartModule: (id, name) => selectStartModule(id, name, startRound),
       toggleCard: combat.toggleCard,
       handleReroll: combat.handleReroll,
       handleAttack: combat.handleAttack,
@@ -130,7 +130,7 @@ export function GameProvider({ children }) {
       logs,
       floats,
       initGame,
-      startStage,
+      startRound,
       selectStartWeapon,
       selectStartModule,
       combat,

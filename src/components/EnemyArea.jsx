@@ -15,12 +15,16 @@ export default function EnemyArea({
           : enemies.length > 1
             ? 'opacity-80 scale-90'
             : '';
-        const nameColor = enemy.isHeal
+        const nameColor = enemy.isBoss
+          ? 'text-yellow-400'
+          : enemy.isHeal
           ? 'text-green-400'
           : enemy.isModule
             ? 'text-purple-400'
             : 'text-red-400';
-        const specialIcon = enemy.isHeal ? (
+        const specialIcon = enemy.isBoss ? (
+          <span className="absolute top-1 right-1 text-yellow-400 text-xs animate-pulse">👑</span>
+        ) : enemy.isHeal ? (
           <span className="absolute top-1 left-1 text-green-400 text-xs animate-pulse">✚</span>
         ) : enemy.isModule ? (
           <span className="absolute top-1 right-1 text-purple-400 text-xs animate-pulse">⚙️</span>

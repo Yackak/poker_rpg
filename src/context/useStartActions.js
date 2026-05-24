@@ -2,15 +2,18 @@ import { useCallback } from 'react';
 import { createCombatState, GAME_STATES, spawnEnemies } from './gameEngine';
 import { generateDeck } from '../utils/deck';
 import { applyPlayerTurnStart } from '../game/playerTurn';
-import { createPlayer } from '../game/constants';
+import { createPlayer, DEFAULT_MODULE_TIER_WEIGHTS } from '../game/constants';
+import { isBossRound } from '../game/spawnEnemies';
 
 export function useStartActions(setPlayer, setMeta, log, clearLogs) {
-  const startStage = useCallback(
-    (stageNum) => {
-      const enemies = spawnEnemies(stageNum);
+  const startRound = useCallback(
+    (stageNum, roundNum) => {
+      const enemies = spawnEnemies(stageNum, roundNum);
+      const boss = isBossRound(roundNum);
       setMeta((m) => ({
         ...m,
         stage: stageNum,
+        round: roundNum,
         enemies,
         selectedEnemyIndex: 0,
         weaponBonusEarned: false,
@@ -20,7 +23,8 @@ export function useStartActions(setPlayer, setMeta, log, clearLogs) {
         gameState: GAME_STATES.PLAYER_TURN,
         modal: null,
       }));
-      log(`=== 스테이지 ${stageNum} 시작 ===`, 'system');
+      const roundLabel = boss ? '최종 보스' : `라운드 ${roundNum}`;
+      log(`=== 스테이지 ${stageNum} · ${roundLabel} ===`, 'system');
       setPlayer((p) => {
         const copy = structuredClone({ ...p, combatState: createCombatState() });
         applyPlayerTurnStart(copy, log, enemies, true);
@@ -35,6 +39,7 @@ export function useStartActions(setPlayer, setMeta, log, clearLogs) {
     setPlayer(createPlayer({ deck: generateDeck() }));
     setMeta({
       stage: 1,
+      round: 1,
       gameState: GAME_STATES.START,
       enemies: [],
       selectedEnemyIndex: 0,
@@ -49,6 +54,9 @@ export function useStartActions(setPlayer, setMeta, log, clearLogs) {
       pendingNewWeapon: null,
       pendingNewModule: null,
       shake: false,
+      battlesSinceTierShift: 0,
+      moduleTierWeights: { ...DEFAULT_MODULE_TIER_WEIGHTS },
+      isBossVictory: false,
     });
   }, [clearLogs, setMeta, setPlayer]);
 
@@ -62,14 +70,14 @@ export function useStartActions(setPlayer, setMeta, log, clearLogs) {
   );
 
   const selectStartModule = useCallback(
-    (modId, modName, startStageFn) => {
+    (modId, modName, startRoundFn) => {
       setPlayer((p) => ({ ...p, modules: [modId] }));
       log(`${modName} 모듈 장착.`, 'system');
       setMeta((m) => ({ ...m, modal: null }));
-      startStageFn(1);
+      startRoundFn(1, 1);
     },
     [log, setMeta, setPlayer]
   );
 
-  return { initGame, startStage, selectStartWeapon, selectStartModule };
+  return { initGame, startRound, selectStartWeapon, selectStartModule };
 };

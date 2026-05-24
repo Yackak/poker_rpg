@@ -31,6 +31,7 @@ import { normalizeSelectedEnemyIndex } from '../game/enemyTarget';
 export function createInitialMeta() {
   return {
     stage: 1,
+    round: 1,
     gameState: GAME_STATES.START,
     enemies: [],
     selectedEnemyIndex: 0,
@@ -47,6 +48,7 @@ export function createInitialMeta() {
     shake: false,
     battlesSinceTierShift: 0,
     moduleTierWeights: { ...DEFAULT_MODULE_TIER_WEIGHTS },
+    isBossVictory: false,
   };
 }
 

@@ -3,10 +3,12 @@ import {
   buildVictoryRewards,
   applyWeaponReward,
   applyModuleReward,
+  advanceTierWeightsAfterBattle,
 } from '../game/rewardLogic';
 import { replaceModule } from '../game/moduleLogic';
 import { swapModuleToEquipped, swapModuleToInventory } from '../game/moduleLogic';
-import { GAME_STATES, MAX_STAGE } from '../game/constants';
+import { GAME_STATES, MAX_STAGE, ROUNDS_PER_STAGE } from '../game/constants';
+import { isBossRound } from '../game/spawnEnemies';
 
 function toModuleManageMeta(m) {
   return { ...m, modal: 'module_manage', gameState: GAME_STATES.MODULE_MANAGEMENT };
@@ -24,7 +26,7 @@ function shouldOfferWeaponBonus(m) {
   return m.weaponBonusEarned && m.weaponRewardOptions?.length > 0;
 }
 
-export function useRewardHandlers(player, meta, setPlayer, setMeta, log, startStage) {
+export function useRewardHandlers(player, meta, setPlayer, setMeta, log, startRound) {
   const finishReward = useCallback(() => {
     setMeta((m) => toModuleManageMeta(m));
   }, [setMeta]);
@@ -35,11 +37,18 @@ export function useRewardHandlers(player, meta, setPlayer, setMeta, log, startSt
 
   const openVictory = useCallback(
     (weaponBonus) => {
+      const bossVictory = isBossRound(meta.round);
+      const tierUpdate = advanceTierWeightsAfterBattle(
+        meta.battlesSinceTierShift,
+        meta.moduleTierWeights,
+        bossVictory
+      );
+
       const { moduleOptions, weaponOptions } = buildVictoryRewards(
         player,
         meta.stage,
         weaponBonus,
-        { isBossVictory: true }
+        { isBossVictory: bossVictory, tierWeights: tierUpdate.moduleTierWeights }
       );
 
       const baseMeta = {
@@ -51,6 +60,8 @@ export function useRewardHandlers(player, meta, setPlayer, setMeta, log, startSt
         choiceContext: null,
         pendingNewWeapon: null,
         pendingNewModule: null,
+        isBossVictory: bossVictory,
+        ...tierUpdate,
       };
 
       if (moduleOptions.length === 0 && weaponOptions.length === 0) {
@@ -75,7 +86,7 @@ export function useRewardHandlers(player, meta, setPlayer, setMeta, log, startSt
         rewardOptions: moduleOptions,
       }));
     },
-    [player, meta.stage, setMeta]
+    [player, meta.stage, meta.round, meta.battlesSinceTierShift, meta.moduleTierWeights, setMeta]
   );
 
   const backToReward = useCallback(() => {
@@ -191,15 +202,22 @@ export function useRewardHandlers(player, meta, setPlayer, setMeta, log, startSt
   }, [log, advanceAfterModule, setMeta]);
 
   const finishModuleManagement = useCallback(() => {
-    const nextStage = meta.stage + 1;
-    if (nextStage > MAX_STAGE) {
-      alert('모든 스테이지 클리어!');
-      window.location.reload();
-      return;
+    let nextStage = meta.stage;
+    let nextRound = meta.round + 1;
+
+    if (nextRound > ROUNDS_PER_STAGE) {
+      nextStage = meta.stage + 1;
+      nextRound = 1;
+      if (nextStage > MAX_STAGE) {
+        alert('모든 스테이지 클리어!');
+        window.location.reload();
+        return;
+      }
     }
+
     setMeta((m) => ({ ...m, modal: null }));
-    startStage(nextStage);
-  }, [meta.stage, startStage, setMeta]);
+    startRound(nextStage, nextRound);
+  }, [meta.stage, meta.round, startRound, setMeta]);
 
   const toggleModuleEquip = useCallback(
     (source, index, modId) => {

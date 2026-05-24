@@ -1,10 +1,19 @@
 import { useGame } from '../../context/GameContext';
 import { MODULES_DB } from '../../data/modules';
+import { ROUNDS_PER_STAGE, MAX_STAGE } from '../../game/constants';
 
 export default function ModuleManageModal() {
   const { meta, player, toggleModuleEquip, finishModuleManagement } = useGame();
 
   if (meta.modal !== 'module_manage') return null;
+
+  const nextRound = meta.round + 1;
+  const nextLabel =
+    meta.round >= ROUNDS_PER_STAGE
+      ? meta.stage >= MAX_STAGE
+        ? '정비 완료 (클리어!)'
+        : `정비 완료 (스테이지 ${meta.stage + 1} 진입)`
+      : `정비 완료 (라운드 ${nextRound} 진입)`;
 
   return (
     <div className="pixel-box p-4 md:p-6 max-w-4xl w-full mx-4 flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
@@ -37,7 +46,7 @@ export default function ModuleManageModal() {
         className="pixel-btn py-3 mt-2 w-full text-white text-base md:text-lg border-green-600 bg-green-900/30 hover:bg-green-800"
         onClick={finishModuleManagement}
       >
-        정비 완료 (다음 전투 진입)
+        {nextLabel}
       </button>
     </div>
   );
