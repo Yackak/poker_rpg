@@ -508,10 +508,11 @@
         }
 
         function isWeaponActive(weapon) {
+            let wInfo = WEAPONS_DB[weapon.id];
             let cards = getSelectedCards();
             if (cards.length === 0) return false;
             
-            let reqCount = weapon.reqCount;
+            let reqCount = wInfo.reqCount;
             if (player.modules.includes('one_way')) reqCount = Math.max(1, reqCount - 1);
 
             let hasKingsDecree = player.modules.includes('kings_decree') && !player.combatState.firstFiveUsedThisTurn;
@@ -522,20 +523,20 @@
 
             if (mappedCards.length < reqCount) return false;
 
-            if (weapon.reqType === 'triple') {
+            if (wInfo.reqType === 'triple') {
                 let counts = {}; mappedCards.forEach(c => counts[c.num] = (counts[c.num] || 0) + 1);
                 return Object.values(counts).some(v => v >= reqCount);
             }
-            if (weapon.reqType === 'pair') {
+            if (wInfo.reqType === 'pair') {
                 let counts = {}; mappedCards.forEach(c => counts[c.num] = (counts[c.num] || 0) + 1);
                 let pairs = Object.values(counts).filter(v => v >= 2).length;
                 return pairs >= reqCount; // e.g. 1 pair reqCount = 1
             }
-            if (weapon.reqType === 'flush') {
+            if (wInfo.reqType === 'flush') {
                 let counts = {}; mappedCards.forEach(c => counts[c.suit] = (counts[c.suit] || 0) + 1);
                 return Object.values(counts).some(v => v >= reqCount);
             }
-            if (weapon.reqType === 'straight') {
+            if (wInfo.reqType === 'straight') {
                 let nums = mappedCards.map(c => c.num === 'K' ? 6 : c.num).sort((a,b)=>a-b);
                 let uniqueNums = [...new Set(nums)];
                 if(uniqueNums.length < reqCount) return false;
