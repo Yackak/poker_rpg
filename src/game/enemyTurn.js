@@ -28,8 +28,17 @@ export function processSingleEnemyTurn(enemy, player, log) {
       finalDmg += enemy.status.bleed;
       log(`${enemy.name}의 출혈로 추가 데미지 발생.`, 'system');
     }
+
+    const shield = player.shield || 0;
+    const blocked = Math.min(shield, finalDmg);
+    if (blocked > 0) {
+      player.shield -= blocked;
+      finalDmg -= blocked;
+      log(`쉴드 ${blocked} 흡수! (남은 쉴드 ${player.shield})`, 'heal');
+    }
+
     player.hp -= finalDmg;
-    events.push({ type: 'attack', enemy, damage: finalDmg });
+    events.push({ type: 'attack', enemy, damage: finalDmg, blocked });
     log(`${enemy.name}의 공격! 플레이어에게 ${finalDmg} 피해.`, 'enemy');
   } else if (act.type === 'defend') {
     enemy.armor += act.val;

@@ -22,6 +22,12 @@ export default function PlayerPanel({ player, onUseModule, gameState }) {
             </span>
           </div>
         </div>
+        {(player.shield || 0) > 0 && (
+          <div className="flex flex-col items-end">
+            <span className="text-cyan-400 text-sm mb-1">쉴드</span>
+            <span className="text-lg font-bold text-cyan-300">{player.shield}</span>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-2">

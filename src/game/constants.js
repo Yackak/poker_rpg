@@ -51,6 +51,7 @@ export function createPlayer(overrides = {}) {
     rerolls: 0,
     baseRerolls: 1,
     status: { bleed: 0 },
+    shield: 0,
     combatState: createCombatState(),
     ...overrides,
   };

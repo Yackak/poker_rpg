@@ -6,10 +6,12 @@ import { spawnEnemies } from '../game/spawnEnemies';
 import { applyPlayerTurnStart, applyEndTurnCleanup } from '../game/playerTurn';
 import {
   executeReroll,
+  executeDefend,
   discardSelectedCards,
   applyEmergencyExit,
   applyEngineDraw,
   calcWeaponDamage,
+  calcShieldFromCards,
 } from '../game/combatActions';
 import { applyPostAttackModules } from '../game/moduleEffects';
 import { processSingleEnemyTurn, handleEnemyDeath } from '../game/enemyTurn';
@@ -149,6 +151,8 @@ export {
   applyPlayerTurnStart,
   applyEndTurnCleanup,
   executeReroll,
+  executeDefend,
+  calcShieldFromCards,
   getSelectedCards,
   isWeaponActive,
   WEAPONS_DB,

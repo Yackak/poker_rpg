@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { buildAttackResult, executeReroll, GAME_STATES } from './gameEngine';
+import { buildAttackResult, executeReroll, executeDefend, GAME_STATES } from './gameEngine';
 import { applyEndTurnCleanup, applyPlayerTurnStart } from '../game/playerTurn';
 import { processSingleEnemyTurn, handleEnemyDeath } from '../game/enemyTurn';
 
@@ -22,6 +22,15 @@ export function useCombatHandlers(setPlayer, setMeta, log, showFloatAtEnemy, onV
     setPlayer((p) => {
       const copy = structuredClone(p);
       if (executeReroll(copy, m.enemies, log)) return copy;
+      return p;
+    });
+  }, [getState, log, setPlayer]);
+
+  const handleDefend = useCallback(() => {
+    const { meta: m } = getState();
+    setPlayer((p) => {
+      const copy = structuredClone(p);
+      if (executeDefend(copy, log, m.enemies)) return copy;
       return p;
     });
   }, [getState, log, setPlayer]);
@@ -126,5 +135,5 @@ export function useCombatHandlers(setPlayer, setMeta, log, showFloatAtEnemy, onV
     });
   }, [log, runEnemyTurns, setMeta, setPlayer]);
 
-  return { toggleCard, handleReroll, handleAttack, handleEndTurn };
+  return { toggleCard, handleReroll, handleAttack, handleDefend, handleEndTurn };
 }

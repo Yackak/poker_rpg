@@ -100,6 +100,7 @@ export function GameProvider({ children }) {
       toggleCard: combat.toggleCard,
       handleReroll: combat.handleReroll,
       handleAttack: combat.handleAttack,
+      handleDefend: combat.handleDefend,
       handleEndTurn: combat.handleEndTurn,
       useActiveModule,
       log,

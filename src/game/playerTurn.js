@@ -13,6 +13,7 @@ function drawWithModules(player, amount, log) {
 
 export function applyPlayerTurnStart(player, log, enemies = [], isCombatStart = false) {
   player.selectedCardIndices = [];
+  player.shield = 0;
   player.combatState.firstFiveUsedThisTurn = false;
 
   applyTurnStartModules(player, log, enemies);

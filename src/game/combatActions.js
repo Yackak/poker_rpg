@@ -1,4 +1,5 @@
 import { drawCards } from '../utils/deck';
+import { getSelectedCards } from '../utils/pokerHands';
 import { WEAPONS_DB } from '../data/weapons';
 import {
   applyRerollModules,
@@ -64,6 +65,45 @@ export function executeReroll(player, enemies, log) {
   player.selectedCardIndices = [];
   log(`${discardedCards.length}장 리롤 완료.`, 'system');
   applyEmptyHandDraws(player, log, enemies);
+  return true;
+}
+
+export function getCardShieldValue(card, player) {
+  let num = card.num;
+  if (
+    player.modules.includes('kings_decree') &&
+    !player.combatState.firstFiveUsedThisTurn &&
+    num === 5
+  ) {
+    num = 'K';
+  }
+  return num === 'K' ? 10 : num;
+}
+
+export function calcShieldFromCards(cards, player) {
+  return cards.reduce((sum, card) => sum + getCardShieldValue(card, player), 0);
+}
+
+export function executeDefend(player, log, enemies = []) {
+  const cards = getSelectedCards(player);
+  if (cards.length === 0) return false;
+
+  const hasKingsDecreeFive =
+    player.modules.includes('kings_decree') &&
+    !player.combatState.firstFiveUsedThisTurn &&
+    cards.some((c) => c.num === 5);
+
+  const shieldGain = calcShieldFromCards(cards, player);
+
+  if (hasKingsDecreeFive) {
+    log('[왕의 칙령] 제출된 5가 K로 취급됩니다!', 'system');
+    player.combatState.firstFiveUsedThisTurn = true;
+  }
+
+  discardSelectedCards(player);
+  player.shield = (player.shield || 0) + shieldGain;
+  log(`방어! ${shieldGain} 쉴드 획득 (총 ${player.shield})`, 'heal');
+  applyEmergencyExit(player, log, enemies);
   return true;
 }
 
