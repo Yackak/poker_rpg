@@ -8,10 +8,4 @@ export function useGame() {
   return ctx;
 }
 
-export function GameProvider({ children }) {
-  return (
-    <GameContext.Provider value={{}}>
-      {children}
-    </GameContext.Provider>
-  );
-}
+export { GameProvider } from './GameProvider';
