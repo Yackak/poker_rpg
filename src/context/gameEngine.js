@@ -1,4 +1,3 @@
-import { generateDeck } from '../utils/deck';
 import { getSelectedCards, isWeaponActive } from '../utils/pokerHands';
 import { WEAPONS_DB } from '../data/weapons';
 import { MODULES_DB } from '../data/modules';
@@ -12,6 +11,7 @@ import {
   applyEngineDraw,
   calcWeaponDamage,
 } from '../game/combatActions';
+import { applyPostAttackModules } from '../game/moduleEffects';
 import { processSingleEnemyTurn, handleEnemyDeath } from '../game/enemyTurn';
 import {
   generateModuleRewards,
@@ -21,6 +21,7 @@ import {
 } from '../game/rewardLogic';
 import { replaceModule, swapModuleToEquipped, swapModuleToInventory } from '../game/moduleLogic';
 import { useJokerChip, useTuning, useOverloadChip } from '../game/moduleLogic';
+import { generateDeck } from '../utils/deck';
 
 export function createInitialMeta() {
   return {
@@ -66,7 +67,7 @@ export function buildAttackResult(player, enemies, log, showFloat) {
 
   activeWeapons.forEach((w) => {
     if (!target || target.hp <= 0) return;
-    const { dmg, isCrit, wInfo } = calcWeaponDamage(w);
+    const { dmg, isCrit, wInfo } = calcWeaponDamage(w, player, submitted);
     const actualDmg = Math.max(1, dmg - target.armor);
     target.hp -= actualDmg;
     hits.push({ wInfo, actualDmg, isCrit });
@@ -103,7 +104,7 @@ export function buildAttackResult(player, enemies, log, showFloat) {
     showFloat(`-${actualDmg}`, isCrit ? '#facc15' : '#ef4444');
   });
 
-  applyEmergencyExit(player, log);
+  applyPostAttackModules(player, enemies, submitted, activeWeapons, log);
   applyEngineDraw(player, submitted, log);
 
   return { targetDead: target && target.hp <= 0 };
@@ -142,7 +143,6 @@ export function processEnemyQueue(enemies, player, log, showFloat, onDone) {
 }
 
 export {
-  generateDeck,
   createPlayer,
   createCombatState,
   spawnEnemies,

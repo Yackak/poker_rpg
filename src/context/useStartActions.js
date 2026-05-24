@@ -1,15 +1,17 @@
 import { useCallback } from 'react';
-import { createCombatState, GAME_STATES, generateDeck, spawnEnemies } from './gameEngine';
+import { createCombatState, GAME_STATES, spawnEnemies } from './gameEngine';
+import { generateDeck } from '../utils/deck';
 import { applyPlayerTurnStart } from '../game/playerTurn';
 import { createPlayer } from '../game/constants';
 
 export function useStartActions(setPlayer, setMeta, log, clearLogs) {
   const startStage = useCallback(
     (stageNum) => {
+      const enemies = spawnEnemies(stageNum);
       setMeta((m) => ({
         ...m,
         stage: stageNum,
-        enemies: spawnEnemies(stageNum),
+        enemies,
         moduleDropEarned: false,
         gameState: GAME_STATES.PLAYER_TURN,
         modal: null,
@@ -17,7 +19,7 @@ export function useStartActions(setPlayer, setMeta, log, clearLogs) {
       log(`=== 스테이지 ${stageNum} 시작 ===`, 'system');
       setPlayer((p) => {
         const copy = structuredClone({ ...p, combatState: createCombatState() });
-        applyPlayerTurnStart(copy, log);
+        applyPlayerTurnStart(copy, log, enemies, true);
         return copy;
       });
     },
@@ -62,4 +64,4 @@ export function useStartActions(setPlayer, setMeta, log, clearLogs) {
   );
 
   return { initGame, startStage, selectStartWeapon, selectStartModule };
-}
+};

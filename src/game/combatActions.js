@@ -1,7 +1,19 @@
 import { drawCards } from '../utils/deck';
 import { WEAPONS_DB } from '../data/weapons';
+import {
+  applyRerollModules,
+  applyPostRerollModules,
+  applyEmptyHandDraws,
+  onDeckShuffled,
+  calcModuleDamageMultiplier,
+  calcModuleDamageBonus,
+} from './moduleEffects';
 
-export function executeReroll(player, log) {
+function drawWithModules(player, amount, log) {
+  return drawCards(player, amount, () => onDeckShuffled(player, log));
+}
+
+export function executeReroll(player, enemies, log) {
   if (player.rerolls <= 0 || player.selectedCardIndices.length === 0) return false;
 
   if (player.modules.includes('one_way') && player.selectedCardIndices.length > 1) {
@@ -9,7 +21,16 @@ export function executeReroll(player, log) {
     return false;
   }
 
-  player.rerolls--;
+  const isFreeReroll =
+    player.modules.includes('free_first_reroll') &&
+    !player.combatState.firstRerollFreeUsed;
+
+  if (!isFreeReroll) {
+    player.rerolls--;
+  } else {
+    player.combatState.firstRerollFreeUsed = true;
+    log('[첫 리롤 면제권] 첫 리롤은 무료입니다!', 'system');
+  }
 
   if (player.modules.includes('reroll_battery') && Math.random() < 0.5) {
     player.rerolls++;
@@ -28,16 +49,21 @@ export function executeReroll(player, log) {
     player.keepSlot = null;
   }
 
+  applyRerollModules(player, discardedCards, enemies, log);
+
   player.deck.unshift(...discardedCards);
-  const { drawn } = drawCards(player, discardedCards.length);
+  const { drawn } = drawWithModules(player, discardedCards.length, log);
 
   drawn.forEach((c) => {
     if (keepSelected && !player.keepSlot) player.keepSlot = c;
     else player.hand.push(c);
   });
 
+  applyPostRerollModules(player, log);
+
   player.selectedCardIndices = [];
   log(`${discardedCards.length}장 리롤 완료.`, 'system');
+  applyEmptyHandDraws(player, log, enemies);
   return true;
 }
 
@@ -53,17 +79,8 @@ export function discardSelectedCards(player) {
   player.selectedCardIndices = [];
 }
 
-export function applyEmergencyExit(player, log) {
-  if (
-    player.hand.length === 0 &&
-    player.modules.includes('emergency_exit') &&
-    !player.combatState.emergencyUsed
-  ) {
-    player.combatState.emergencyUsed = true;
-    const { drawn } = drawCards(player, 3);
-    player.hand.push(...drawn);
-    log('[비상 탈출구] 패가 모두 소진되어 3장을 긴급 드로우합니다!', 'system');
-  }
+export function applyEmergencyExit(player, log, enemies = []) {
+  applyEmptyHandDraws(player, log, enemies);
 }
 
 export function applyEngineDraw(player, cards, log) {
@@ -86,7 +103,7 @@ export function applyEngineDraw(player, cards, log) {
   const engineDraws = spadeCount + kCount;
   if (engineDraws > 0) {
     log(`엔진 가동! ♠(${spadeCount}) K(${kCount}) -> ${engineDraws}장 드로우`, 'system');
-    const { drawn } = drawCards(player, engineDraws);
+    const { drawn } = drawWithModules(player, engineDraws, log);
     player.hand.push(...drawn);
   }
 }
@@ -125,9 +142,16 @@ export function applyWeaponEffects(weapon, w, target, actualDmg, player, log) {
   return { isCrit };
 }
 
-export function calcWeaponDamage(w) {
+export function calcWeaponDamage(w, player, submittedCards) {
   const wInfo = WEAPONS_DB[w.id];
   let dmg = wInfo.baseDmg + (w.level - 1) * 2;
+
+  if (player) {
+    const mult = calcModuleDamageMultiplier(player, w.id, submittedCards || []);
+    const bonus = calcModuleDamageBonus(player, w.id);
+    dmg = Math.floor(dmg * mult) + bonus;
+  }
+
   let isCrit = false;
   if (w.id === 'thorn' && w.level >= 2 && Math.random() * 100 <= (w.level - 1) * 10) {
     dmg *= 2;

@@ -8,7 +8,17 @@ import { generateDeck } from '../utils/deck';
 import { useStartActions } from './useStartActions';
 import { useCombatHandlers } from './useCombatHandlers';
 import { useRewardHandlers } from './useRewardHandlers';
-import { useJokerChip, useTuning, useOverloadChip } from '../game/moduleLogic';
+import {
+  useJokerChip,
+  useTuning,
+  useOverloadChip,
+  useCopyDiscard,
+  useDelayDraw,
+  useEmptyDeckRescue,
+  useCombatDoubleDraw,
+  useSpadeThreeChip,
+  useHeartAceChip,
+} from '../game/moduleLogic';
 import { GAME_STATES } from '../game/constants';
 
 export function GameProvider({ children }) {
@@ -18,6 +28,8 @@ export function GameProvider({ children }) {
   const [meta, setMeta] = useState(createInitialMeta);
   const stateRef = useRef({ player, meta });
   stateRef.current = { player, meta };
+
+  const getState = useCallback(() => stateRef.current, []);
 
   const showFloatAtEnemy = useCallback(
     (text, color) => showFloatText(text, window.innerWidth / 2 - 20, 80, color),
@@ -38,26 +50,36 @@ export function GameProvider({ children }) {
     setMeta,
     log,
     showFloatAtEnemy,
-    rewardHandlers.openVictory
-  );
-
-  const handleAttack = useCallback(
-    () => combat.handleAttack(() => stateRef.current),
-    [combat]
+    rewardHandlers.openVictory,
+    getState
   );
 
   const useActiveModule = useCallback(
     (modId, payload) => {
       if (meta.gameState !== GAME_STATES.PLAYER_TURN) return;
+      const enemies = stateRef.current.meta.enemies;
       setPlayer((p) => {
         const copy = structuredClone(p);
         if (copy.combatState.activeModulesUsed[modId]) return p;
+
         if (modId === 'joker_chip') {
-          useJokerChip(copy, payload.cardIndex, payload.suit, log);
+          useJokerChip(copy, payload.cardIndex, payload.suit, log, enemies);
         } else if (modId === 'tuning') {
-          useTuning(copy, payload.cardIndex, payload.increase, log);
+          useTuning(copy, payload.cardIndex, payload.increase, log, enemies);
         } else if (modId === 'overload_chip') {
           useOverloadChip(copy, log);
+        } else if (modId === 'copy_discard') {
+          useCopyDiscard(copy, payload.cardIndex, log);
+        } else if (modId === 'delay_draw') {
+          useDelayDraw(copy, payload.cardIndices, log);
+        } else if (modId === 'empty_deck_rescue') {
+          useEmptyDeckRescue(copy, log);
+        } else if (modId === 'combat_double_draw') {
+          useCombatDoubleDraw(copy, log);
+        } else if (modId === 'spade_three_chip') {
+          useSpadeThreeChip(copy, payload.cardIndex, enemies, log);
+        } else if (modId === 'heart_ace_chip') {
+          useHeartAceChip(copy, payload.cardIndex, enemies, log);
         }
         return copy;
       });
@@ -77,7 +99,7 @@ export function GameProvider({ children }) {
       selectStartModule: (id, name) => selectStartModule(id, name, startStage),
       toggleCard: combat.toggleCard,
       handleReroll: combat.handleReroll,
-      handleAttack,
+      handleAttack: combat.handleAttack,
       handleEndTurn: combat.handleEndTurn,
       useActiveModule,
       log,
@@ -94,7 +116,6 @@ export function GameProvider({ children }) {
       selectStartWeapon,
       selectStartModule,
       combat,
-      handleAttack,
       useActiveModule,
       log,
       rewardHandlers,

@@ -79,6 +79,9 @@ function ModuleActions({ player, gameState, onUseModule }) {
         if (modId === 'overload_chip' && player.combatState.overloadCooldown > 0) {
           disabled = true;
           label += `(쿨${player.combatState.overloadCooldown})`;
+        } else if (modId === 'combat_double_draw' && player.combatState.combatDrawUsed) {
+          disabled = true;
+          label += '(전투 사용됨)';
         } else if (player.combatState.activeModulesUsed[modId]) {
           disabled = true;
           label += '(완료)';
