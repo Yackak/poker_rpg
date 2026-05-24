@@ -1,6 +1,7 @@
 import { WEAPONS_DB, getReqLabel } from '../data/weapons';
 import { MODULES_DB } from '../data/modules';
 import { isWeaponActive, getSelectedCards } from '../utils/pokerHands';
+import ModuleChip from './ModuleChip';
 
 export default function PlayerPanel({ player, onUseModule, gameState }) {
   const selected = getSelectedCards(player);
@@ -53,18 +54,9 @@ export default function PlayerPanel({ player, onUseModule, gameState }) {
       </div>
 
       <div className="flex gap-2">
-        {player.modules.map((modId) => {
-          const mInfo = MODULES_DB[modId];
-          const isActive = mInfo.type === 'active';
-          return (
-            <div
-              key={modId}
-              className={`flex-1 pixel-box p-1 text-center text-[10px] md:text-xs font-bold ${isActive ? 'text-purple-300 border-purple-900 bg-purple-900/20' : 'text-green-300 border-green-900 bg-green-900/20'}`}
-            >
-              {mInfo.name}
-            </div>
-          );
-        })}
+        {player.modules.map((modId) => (
+          <ModuleChip key={modId} modId={modId} />
+        ))}
       </div>
 
       <ModuleActions player={player} gameState={gameState} onUseModule={onUseModule} />
