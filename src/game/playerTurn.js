@@ -1,8 +1,21 @@
 import { drawCards } from '../utils/deck';
+import {
+  applyTurnStartModules,
+  applyTurnEndModules,
+  applyCombatStartModules,
+  onDeckShuffled,
+} from './moduleEffects';
 
-export function applyPlayerTurnStart(player, log) {
+function drawWithModules(player, amount, log) {
+  const onReshuffle = () => onDeckShuffled(player, log);
+  return drawCards(player, amount, onReshuffle);
+}
+
+export function applyPlayerTurnStart(player, log, enemies = [], isCombatStart = false) {
   player.selectedCardIndices = [];
   player.combatState.firstFiveUsedThisTurn = false;
+
+  applyTurnStartModules(player, log, enemies);
 
   let drawAmount = 6 - player.hand.length;
 
@@ -29,7 +42,7 @@ export function applyPlayerTurnStart(player, log) {
   }
 
   if (drawAmount > 0) {
-    const { drawn, reshuffled } = drawCards(player, drawAmount);
+    const { drawn, reshuffled } = drawWithModules(player, drawAmount, log);
     if (reshuffled) log('덱을 다시 섞습니다.', 'system');
     player.hand.push(...drawn);
   }
@@ -37,6 +50,10 @@ export function applyPlayerTurnStart(player, log) {
   player.rerolls = player.baseRerolls;
   if (player.combatState.overloadCooldown > 0) {
     player.combatState.overloadCooldown--;
+  }
+
+  if (isCombatStart) {
+    applyCombatStartModules(player, log);
   }
 
   if (player.modules.includes('holo_clone') && player.hand.length > 0) {
@@ -51,11 +68,13 @@ export function applyPlayerTurnStart(player, log) {
   }
 }
 
-export function applyEndTurnCleanup(player) {
+export function applyEndTurnCleanup(player, log) {
   player.selectedCardIndices = [];
   player.hand = player.hand.filter((c) => !c.isClone);
 
   if (player.modules.includes('minimalist') && player.hand.length < 3) {
     player.combatState.minimalistHeart = true;
   }
+
+  applyTurnEndModules(player, log);
 }
