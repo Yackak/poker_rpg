@@ -1,4 +1,4 @@
-import { drawCards } from '../utils/deck';
+import { drawCards, addToDiscard } from '../utils/deck';
 import { getSelectedCards } from '../utils/pokerHands';
 import { WEAPONS_DB } from '../data/weapons';
 import {
@@ -111,11 +111,13 @@ export function discardSelectedCards(player) {
   const sortedIdx = player.selectedCardIndices
     .filter((i) => i !== 'keep')
     .sort((a, b) => b - a);
-  sortedIdx.forEach((i) => player.discard.push(player.hand.splice(i, 1)[0]));
+  const discarded = [];
+  sortedIdx.forEach((i) => discarded.push(player.hand.splice(i, 1)[0]));
   if (player.selectedCardIndices.includes('keep') && player.keepSlot) {
-    player.discard.push(player.keepSlot);
+    discarded.push(player.keepSlot);
     player.keepSlot = null;
   }
+  addToDiscard(player, discarded);
   player.selectedCardIndices = [];
 }
 

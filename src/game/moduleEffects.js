@@ -1,4 +1,4 @@
-import { drawCards } from '../utils/deck';
+import { drawCards, addToDiscard } from '../utils/deck';
 import { WEAPONS_DB } from '../data/weapons';
 import { MODULES_DB } from '../data/modules';
 
@@ -11,7 +11,7 @@ export function hasKeepSlotAccess(player) {
 
 export function clearKeepSlotOnModuleRemove(player, modId) {
   if ((modId === 'keep_slot' || modId === 'fullhand_cache') && player.keepSlot) {
-    player.discard.push(player.keepSlot);
+    addToDiscard(player, player.keepSlot);
     player.keepSlot = null;
   }
 }
@@ -254,7 +254,7 @@ export function applyPostRerollModules(player, log) {
     const idx = Math.floor(Math.random() * player.hand.length);
     const card = player.hand.splice(idx, 1)[0];
     if (player.keepSlot) {
-      player.discard.push(player.keepSlot);
+      addToDiscard(player, player.keepSlot);
     }
     player.keepSlot = card;
     log(`[풀핸드 캐시] ${card.suit}${card.num}을(를) 킵 슬롯에 보관.`, 'system');
@@ -363,7 +363,7 @@ export function useCopyDiscard(player, cardIndex, log) {
   const srcIdx = player.hand.findIndex((c) => c.id === card.id);
   const src = player.hand[srcIdx];
   player.hand.push({ ...src, id: crypto.randomUUID(), isClone: true });
-  player.discard.push(discarded);
+  addToDiscard(player, discarded);
   player.combatState.activeModulesUsed.copy_discard = true;
   player.selectedCardIndices = [];
   log(`[쌍둥이 칩] ${src.suit}${src.num} 복사, ${discarded.suit}${discarded.num} 버림.`, 'system');
@@ -373,7 +373,9 @@ export function useCopyDiscard(player, cardIndex, log) {
 export function useDelayDraw(player, cardIndices, log) {
   if (cardIndices.length !== 2) return false;
   const sorted = [...cardIndices].sort((a, b) => b - a);
-  sorted.forEach((i) => player.discard.push(player.hand.splice(i, 1)[0]));
+  const discarded = [];
+  sorted.forEach((i) => discarded.push(player.hand.splice(i, 1)[0]));
+  addToDiscard(player, discarded);
   player.combatState.pendingDelayDraw = 1;
   player.combatState.activeModulesUsed.delay_draw = true;
   player.selectedCardIndices = [];

@@ -95,3 +95,33 @@ body {
 
 .enemy-card { transition: all 0.3s ease; }
 .enemy-target { border-color: #ef4444 !important; box-shadow: 0 0 15px rgba(239, 68, 68, 0.5); }
+
+.card-mini {
+  width: 28px;
+  height: 40px;
+  min-width: 28px;
+  border: 1px solid #555;
+  background-color: #fff;
+  border-radius: 3px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: black;
+  font-weight: bold;
+  position: relative;
+}
+
+.card-mini-suit { font-size: 8px; line-height: 1; }
+.card-mini-num { font-size: 11px; line-height: 1.1; }
+.card-mini-clone {
+  position: absolute;
+  top: -3px;
+  right: -2px;
+  font-size: 6px;
+  color: #7c3aed;
+  background: #fff;
+  border: 1px solid #7c3aed;
+  padding: 0 1px;
+  line-height: 1;
+}

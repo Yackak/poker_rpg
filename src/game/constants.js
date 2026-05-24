@@ -33,6 +33,7 @@ export function createCombatState() {
     flushDamageBonus: 0,
     pendingDelayDraw: 0,
     combatDrawUsed: false,
+    cardsUsedThisTurn: [],
   };
 }
 

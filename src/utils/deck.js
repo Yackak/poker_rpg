@@ -42,3 +42,16 @@ export function getSuitClass(suit) {
   if (suit === '♦') return 'suit-diamond';
   return 'suit-club';
 }
+
+export function addToDiscard(player, cards) {
+  const list = (Array.isArray(cards) ? cards : [cards]).filter(Boolean);
+  if (list.length === 0) return;
+
+  player.discard.push(...list);
+  if (player.combatState) {
+    if (!player.combatState.cardsUsedThisTurn) {
+      player.combatState.cardsUsedThisTurn = [];
+    }
+    player.combatState.cardsUsedThisTurn.push(...list);
+  }
+}
