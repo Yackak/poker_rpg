@@ -1,12 +1,8 @@
-import { WEAPONS_DB, getReqLabel } from '../data/weapons';
 import { MODULES_DB } from '../data/modules';
-import { isWeaponActive, getSelectedCards } from '../utils/pokerHands';
-import { getEffectiveWeaponLevel } from '../utils/weaponLevel';
 import ModuleChip from './ModuleChip';
+import WeaponChip from './WeaponChip';
 
 export default function PlayerPanel({ player, onUseModule, gameState }) {
-  const selected = getSelectedCards(player);
-
   return (
     <div className="w-full max-w-3xl mx-auto p-2 shrink-0 flex flex-col gap-2">
       <div className="flex justify-between items-center bg-[#222] p-2 border-2 border-gray-700">
@@ -33,29 +29,9 @@ export default function PlayerPanel({ player, onUseModule, gameState }) {
       </div>
 
       <div className="flex gap-2">
-        {player.weapons.map((w) => {
-          const wInfo = WEAPONS_DB[w.id];
-          const effLv = getEffectiveWeaponLevel(w, player);
-          const active = isWeaponActive(w, selected, player.modules, player.combatState);
-          return (
-            <div
-              key={w.id}
-              className={`flex-1 pixel-box p-2 flex flex-col justify-center items-center text-center ${active ? 'border-yellow-400 bg-yellow-900/20' : ''}`}
-            >
-              <div className="text-xs md:text-sm font-bold text-blue-300 mb-1">
-                {wInfo.name} <span className="text-[10px] text-yellow-500">LV.{effLv}</span>
-                {effLv !== w.level && (
-                  <span className="text-[9px] text-gray-500"> (실제 {w.level})</span>
-                )}
-              </div>
-              <div className="text-[10px] text-gray-400">
-                [{wInfo.reqCount}
-                {getReqLabel(wInfo.reqType)}]
-              </div>
-              <div className="text-[10px] text-orange-300 mt-1">{wInfo.effectDesc(effLv)}</div>
-            </div>
-          );
-        })}
+        {player.weapons.map((w) => (
+          <WeaponChip key={w.id} weapon={w} player={player} />
+        ))}
       </div>
 
       <div className="flex gap-2">

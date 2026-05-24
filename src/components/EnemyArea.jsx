@@ -1,3 +1,5 @@
+import { buildPatternTooltipLines, getNextIntentLabel } from '../utils/enemyPattern';
+
 export default function EnemyArea({
   enemies,
   selectedEnemyIndex = 0,
@@ -70,8 +72,31 @@ export default function EnemyArea({
             {stats.length > 0 && (
               <div className="text-[10px] mt-1 flex gap-1 flex-wrap justify-center">{stats}</div>
             )}
-            <div className="absolute -bottom-3 bg-[#333] border border-gray-500 px-2 py-0.5 text-xs text-yellow-300 rounded shadow-md">
-              ?
+            <div className="absolute -bottom-3 group/intent z-10">
+              <div
+                className="bg-[#333] border border-gray-500 px-2 py-0.5 text-xs text-yellow-300 rounded shadow-md cursor-help"
+                title={getNextIntentLabel(enemy)}
+              >
+                ?
+              </div>
+              <div
+                role="tooltip"
+                className="absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 w-36 md:w-44 p-2 pixel-box bg-[#111] border-yellow-600 text-[10px] md:text-xs text-gray-300 leading-snug opacity-0 invisible group-hover/intent:opacity-100 group-hover/intent:visible pointer-events-none z-[100] shadow-lg"
+              >
+                <div className="font-bold mb-1 text-yellow-300">공격 패턴</div>
+                <ul className="space-y-0.5">
+                  {buildPatternTooltipLines(enemy).map((line, i) => (
+                    <li
+                      key={i}
+                      className={line.isNext ? 'text-yellow-300 font-bold' : 'text-gray-400'}
+                    >
+                      {line.isNext ? '▶ ' : '· '}
+                      {line.label}
+                      {line.isNext ? ' (다음)' : ''}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </div>
         );
