@@ -34,13 +34,6 @@ export function applyPlayerTurnStart(player, log, enemies = [], isCombatStart = 
     log('[지정칩] 스페이드 1장을 생성하여 손패에 더했습니다.', 'system');
   }
 
-  if (player.combatState.minimalistHeart) {
-    player.combatState.minimalistHeart = false;
-    player.hand.push({ suit: '♥', num: 3, id: 'min_heart' });
-    drawAmount--;
-    log('[미니멀리스트] 지난 턴 조건을 만족하여 하트 3을 얻었습니다.', 'system');
-  }
-
   drawAmount = Math.max(0, drawAmount);
 
   if (drawAmount > 0) {

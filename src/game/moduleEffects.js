@@ -125,6 +125,12 @@ export function applyTurnStartModules(player, log) {
 export function applyTurnStartAfterHandRefill(player, log, enemies = []) {
   const onReshuffle = () => onDeckShuffled(player, log);
 
+  if (player.combatState.minimalistHeart) {
+    player.combatState.minimalistHeart = false;
+    player.hand.push(createRandomCard({ suit: '♥', num: 3 }));
+    log('[미니멀리스트] 6장 드로우 후 하트 3을 추가로 얻었습니다.', 'system');
+  }
+
   if (player.combatState.pendingDelayDraw > 0) {
     const n = player.combatState.pendingDelayDraw;
     const { drawn } = drawCardsIgnoringHandCap(player, n, onReshuffle);

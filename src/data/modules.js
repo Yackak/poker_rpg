@@ -61,7 +61,7 @@ export const MODULES_DB = {
     name: '미니멀리스트',
     type: 'passive',
     rarity: 'normal',
-    desc: '턴 종료 시 손패가 3장 미만이면 다음 턴에 하트 3 확정 획득',
+    desc: '턴 종료 시 손패가 3장 미만이면 다음 턴 6장 드로우 후 하트 3 추가 획득',
   },
   one_way: {
     id: 'one_way',
