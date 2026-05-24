@@ -1,3 +1,5 @@
+import { WEAPONS_DB } from '../data/weapons';
+
 export function mapCardsWithKingsDecree(cards, hasKingsDecree, firstFiveUsed) {
   const active = hasKingsDecree && !firstFiveUsed;
   return cards.map((c) => (active && c.num === 5 ? { ...c, num: 'K' } : c));
@@ -47,7 +49,10 @@ export function checkHandRequirement(mappedCards, reqType, reqCount) {
 export function isWeaponActive(weapon, selectedCards, modules, combatState) {
   if (selectedCards.length === 0) return false;
 
-  let reqCount = weapon.reqCount;
+  const wInfo = WEAPONS_DB[weapon.id];
+  if (!wInfo) return false;
+
+  let reqCount = wInfo.reqCount;
   if (modules.includes('one_way')) reqCount = Math.max(1, reqCount - 1);
 
   const mapped = mapCardsWithKingsDecree(
@@ -56,7 +61,7 @@ export function isWeaponActive(weapon, selectedCards, modules, combatState) {
     combatState.firstFiveUsedThisTurn
   );
 
-  return checkHandRequirement(mapped, weapon.reqType, reqCount);
+  return checkHandRequirement(mapped, wInfo.reqType, reqCount);
 }
 
 export function getSelectedCards(player) {
