@@ -12,13 +12,14 @@ export function useJokerChip(player, cardIndex, suit, log, enemies = []) {
 export function useTuning(player, cardIndex, increase, log, enemies = []) {
   const card = player.hand[cardIndex];
   if (card.num === 'K') {
-    log('K는 조율할 수 없습니다.', 'system');
-    return false;
+    card.num = increase ? 1 : 5;
+  } else {
+    card.num = increase ? Math.min(5, card.num + 1) : Math.max(1, card.num - 1);
   }
-  card.num = increase ? Math.min(5, card.num + 1) : Math.max(1, card.num - 1);
   player.combatState.activeModulesUsed.tuning = true;
   player.selectedCardIndices = [];
   onCardTransformed(player, enemies, log, '위상 조율기');
+  log(`숫자가 ${card.num}으로 조율되었습니다.`, 'system');
   return true;
 }
 

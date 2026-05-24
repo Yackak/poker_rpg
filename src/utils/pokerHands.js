@@ -47,6 +47,21 @@ export function checkHandRequirement(mappedCards, reqType, reqCount) {
   return false;
 }
 
+export function weaponNeedsOneWayReduction(weapon, selectedCards, modules, combatState) {
+  if (!modules.includes('one_way') || combatState.oneWayReqConsumed) return false;
+
+  const wInfo = WEAPONS_DB[weapon.id];
+  if (!wInfo) return false;
+
+  const reducedCount = Math.max(1, wInfo.reqCount - 1);
+  if (reducedCount >= wInfo.reqCount) return false;
+
+  const meetsReduced = checkHandRequirement(selectedCards, wInfo.reqType, reducedCount);
+  const meetsFull = checkHandRequirement(selectedCards, wInfo.reqType, wInfo.reqCount);
+
+  return meetsReduced && !meetsFull;
+}
+
 export function isWeaponActive(weapon, selectedCards, modules, combatState) {
   if (selectedCards.length === 0) return false;
 

@@ -1,4 +1,4 @@
-import { getSelectedCards, isWeaponActive } from '../utils/pokerHands';
+import { getSelectedCards, isWeaponActive, weaponNeedsOneWayReduction } from '../utils/pokerHands';
 import { WEAPONS_DB } from '../data/weapons';
 import { MODULES_DB } from '../data/modules';
 import { createCombatState, createPlayer, GAME_STATES, MAX_STAGE, DEFAULT_MODULE_TIER_WEIGHTS } from '../game/constants';
@@ -119,7 +119,12 @@ export function buildAttackResult(player, enemies, targetIndex, log, showFloat) 
   applyEngineDraw(player, submitted, log);
 
   if (player.modules.includes('one_way')) {
-    player.combatState.oneWayReqConsumed = true;
+    const usedOneWay = activeWeapons.some((w) =>
+      weaponNeedsOneWayReduction(w, submitted, player.modules, player.combatState)
+    );
+    if (usedOneWay) {
+      player.combatState.oneWayReqConsumed = true;
+    }
   }
 
   return { targetDead: target.hp <= 0, targetIndex: idx };
