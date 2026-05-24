@@ -31,6 +31,19 @@ function buildNewWeaponOptions(player, stage) {
     });
 }
 
+export function buildVictoryRewards(player, stage, weaponBonus = false) {
+  const moduleOptions = generateModuleRewards(player).map((m) => ({
+    type: 'module',
+    id: m.id,
+    data: m,
+  }));
+  const weaponOptions = weaponBonus
+    ? generateWeaponRewards(player, stage).map((o) => ({ ...o }))
+    : [];
+
+  return { moduleOptions, weaponOptions };
+}
+
 export function generateModuleRewards(player) {
   const unowned = Object.values(MODULES_DB).filter(
     (m) => !player.modules.includes(m.id) && !player.inventoryModules.includes(m.id)

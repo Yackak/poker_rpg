@@ -5,17 +5,27 @@ export default function RewardModal() {
 
   if (meta.modal !== 'reward') return null;
 
-  const isModule = meta.moduleDropEarned;
-  const title = isModule
-    ? '전투 승리! 모듈 보상을 선택하세요'
-    : '전투 승리! 무기 보상을 선택하세요';
+  const isWeaponPhase = meta.rewardPhase === 'weapon';
+  const title = isWeaponPhase
+    ? '보너스! 무기 보상을 선택하세요'
+    : '전투 승리! 모듈을 선택하세요';
+  const skipLabel = isWeaponPhase ? '무기 보너스 건너뛰기' : '모듈 건너뛰기';
 
   return (
     <div className="pixel-box p-6 max-w-2xl w-full mx-4 flex flex-col gap-4">
-      <h2 className="text-xl md:text-2xl text-center text-yellow-400 mb-4">{title}</h2>
+      <h2 className="text-xl md:text-2xl text-center text-yellow-400 mb-2">{title}</h2>
+      {!isWeaponPhase && meta.weaponBonusEarned && meta.weaponRewardOptions?.length > 0 && (
+        <p className="text-center text-xs text-blue-300">
+          모듈 선택 후 무기 보너스도 받을 수 있습니다
+        </p>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {meta.rewardOptions.length === 0 ? (
-          <div className="text-center text-gray-400 col-span-3">더 이상 획득할 수 있는 보상이 없습니다.</div>
+          <div className="text-center text-gray-400 col-span-3">
+            {isWeaponPhase
+              ? '더 이상 획득할 수 있는 무기가 없습니다.'
+              : '더 이상 획득할 수 있는 모듈이 없습니다.'}
+          </div>
         ) : (
           meta.rewardOptions.map((option) => (
             <button
@@ -31,7 +41,9 @@ export default function RewardModal() {
                 </>
               ) : (
                 <>
-                  <div className={`text-xs font-bold mb-1 ${option.type === 'upgrade' ? 'text-green-400' : 'text-yellow-400'}`}>
+                  <div
+                    className={`text-xs font-bold mb-1 ${option.type === 'upgrade' ? 'text-green-400' : 'text-yellow-400'}`}
+                  >
                     {option.label}
                   </div>
                   <div className="font-bold text-blue-300 text-sm md:text-base">{option.title}</div>
@@ -42,8 +54,12 @@ export default function RewardModal() {
           ))
         )}
       </div>
-      <button type="button" className="pixel-btn py-3 mt-4 text-gray-400 border-gray-600 hover:bg-gray-800" onClick={skipReward}>
-        보상 받지 않고 넘어가기
+      <button
+        type="button"
+        className="pixel-btn py-3 mt-2 text-gray-400 border-gray-600 hover:bg-gray-800"
+        onClick={skipReward}
+      >
+        {skipLabel}
       </button>
     </div>
   );

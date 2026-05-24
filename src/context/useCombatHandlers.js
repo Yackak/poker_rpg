@@ -57,14 +57,14 @@ export function useCombatHandlers(setPlayer, setMeta, log, showFloatAtEnemy, onV
     );
     if (!result) return;
 
-    let moduleDrop = m.moduleDropEarned;
+    let weaponBonus = m.weaponBonusEarned;
     let nextEnemies = enemiesCopy;
     let nextTargetIndex = targetIndex;
 
     if (result.targetDead && enemiesCopy.length > 0) {
       const dead = enemiesCopy.splice(result.targetIndex, 1)[0];
       const deathResult = handleEnemyDeath(dead, copy, log);
-      if (deathResult.moduleDrop) moduleDrop = true;
+      if (deathResult.weaponBonus) weaponBonus = true;
       nextEnemies = enemiesCopy;
       nextTargetIndex = normalizeSelectedEnemyIndex(enemiesCopy, result.targetIndex);
     }
@@ -74,26 +74,26 @@ export function useCombatHandlers(setPlayer, setMeta, log, showFloatAtEnemy, onV
       ...m,
       enemies: nextEnemies,
       selectedEnemyIndex: nextTargetIndex,
-      moduleDropEarned: moduleDrop,
+      weaponBonusEarned: weaponBonus,
     });
     if (nextEnemies.length === 0) {
-      setTimeout(() => onVictory(moduleDrop), 1000);
+      setTimeout(() => onVictory(weaponBonus), 1000);
     }
   }, [getState, log, showFloatAtEnemy, onVictory, setMeta, setPlayer]);
 
   const runEnemyTurns = useCallback(
-    (enemies, playerSnapshot, moduleDropEarned) => {
+    (enemies, playerSnapshot, weaponBonusEarned) => {
       let idx = 0;
       let currentEnemies = structuredClone(enemies);
       let currentPlayer = structuredClone(playerSnapshot);
-      let moduleDrop = moduleDropEarned;
+      let weaponBonus = weaponBonusEarned;
 
       const finishPlayerTurn = () => {
         setMeta((m) => ({
           ...m,
           gameState: GAME_STATES.PLAYER_TURN,
           enemies: currentEnemies,
-          moduleDropEarned: moduleDrop,
+          weaponBonusEarned: weaponBonus,
           selectedEnemyIndex: normalizeSelectedEnemyIndex(
             currentEnemies,
             m.selectedEnemyIndex ?? 0
@@ -135,18 +135,18 @@ export function useCombatHandlers(setPlayer, setMeta, log, showFloatAtEnemy, onV
         if (result.died) {
           const dead = currentEnemies.splice(idx, 1)[0];
           const deathResult = handleEnemyDeath(dead, currentPlayer, log);
-          if (deathResult.moduleDrop) moduleDrop = true;
+          if (deathResult.weaponBonus) weaponBonus = true;
           setMeta((m) => ({
             ...m,
             enemies: currentEnemies,
-            moduleDropEarned: moduleDrop,
+            weaponBonusEarned: weaponBonus,
             selectedEnemyIndex: normalizeSelectedEnemyIndex(
               currentEnemies,
               m.selectedEnemyIndex ?? 0
             ),
           }));
           if (currentEnemies.length === 0) {
-            setTimeout(() => onVictory(moduleDrop), 500);
+            setTimeout(() => onVictory(weaponBonus), 500);
             return;
           }
           setTimeout(next, 800);
@@ -169,7 +169,7 @@ export function useCombatHandlers(setPlayer, setMeta, log, showFloatAtEnemy, onV
       const copy = structuredClone(p);
       applyEndTurnCleanup(copy, log);
       setMeta((m) => {
-        setTimeout(() => runEnemyTurns(m.enemies, copy, m.moduleDropEarned), 0);
+        setTimeout(() => runEnemyTurns(m.enemies, copy, m.weaponBonusEarned), 0);
         return { ...m, gameState: GAME_STATES.ENEMY_TURN };
       });
       return copy;

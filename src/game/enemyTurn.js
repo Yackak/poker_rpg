@@ -54,7 +54,7 @@ export function processSingleEnemyTurn(enemy, player, log) {
 }
 
 export function handleEnemyDeath(dead, player, log) {
-  const result = { moduleDrop: false, healAmount: 0 };
+  const result = { weaponBonus: false, healAmount: 0 };
   log(`${dead.name} 처치!`, 'system');
 
   if (dead.isHeal) {
@@ -63,8 +63,8 @@ export function handleEnemyDeath(dead, player, log) {
     log(`[회복 몬스터 처치] 체력을 ${result.healAmount} 회복했습니다!`, 'heal');
   }
   if (dead.isModule) {
-    result.moduleDrop = true;
-    log('[모듈 몬스터 처치] 전투 종료 시 모듈을 획득합니다!', 'system');
+    result.weaponBonus = true;
+    log('[코어 몬스터 처치] 전투 종료 시 무기 보너스를 획득합니다!', 'system');
   }
 
   return result;

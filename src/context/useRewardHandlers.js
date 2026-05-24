@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import {
-  generateModuleRewards,
-  generateWeaponRewards,
+  buildVictoryRewards,
   applyWeaponReward,
   applyModuleReward,
 } from '../game/rewardLogic';
@@ -9,25 +8,74 @@ import { replaceModule } from '../game/moduleLogic';
 import { swapModuleToEquipped, swapModuleToInventory } from '../game/moduleLogic';
 import { GAME_STATES, MAX_STAGE } from '../game/constants';
 
+function toModuleManageMeta(m) {
+  return { ...m, modal: 'module_manage', gameState: GAME_STATES.MODULE_MANAGEMENT };
+}
+
+function toWeaponPhaseMeta(m) {
+  return {
+    ...m,
+    rewardPhase: 'weapon',
+    rewardOptions: m.weaponRewardOptions,
+  };
+}
+
+function shouldOfferWeaponBonus(m) {
+  return m.weaponBonusEarned && m.weaponRewardOptions?.length > 0;
+}
+
 export function useRewardHandlers(player, meta, setPlayer, setMeta, log, startStage) {
+  const finishReward = useCallback(() => {
+    setMeta((m) => toModuleManageMeta(m));
+  }, [setMeta]);
+
+  const advanceAfterModule = useCallback(() => {
+    setMeta((m) => (shouldOfferWeaponBonus(m) ? toWeaponPhaseMeta(m) : toModuleManageMeta(m)));
+  }, [setMeta]);
+
   const openVictory = useCallback(
-    (moduleDrop) => {
-      const options = moduleDrop
-        ? generateModuleRewards(player).map((m) => ({ type: 'module', id: m.id, data: m }))
-        : generateWeaponRewards(player, meta.stage).map((o) => ({ ...o }));
-      setMeta((m) => ({
-        ...m,
+    (weaponBonus) => {
+      const { moduleOptions, weaponOptions } = buildVictoryRewards(
+        player,
+        meta.stage,
+        weaponBonus
+      );
+
+      const baseMeta = {
         gameState: GAME_STATES.REWARD,
         modal: 'reward',
-        rewardOptions: options,
+        weaponBonusEarned: weaponBonus,
+        moduleRewardOptions: moduleOptions,
+        weaponRewardOptions: weaponOptions,
+        choiceContext: null,
+        pendingNewWeapon: null,
+        pendingNewModule: null,
+      };
+
+      if (moduleOptions.length === 0 && weaponOptions.length === 0) {
+        setMeta((m) => toModuleManageMeta({ ...m, ...baseMeta }));
+        return;
+      }
+
+      if (moduleOptions.length === 0) {
+        setMeta((m) => ({
+          ...m,
+          ...baseMeta,
+          rewardPhase: 'weapon',
+          rewardOptions: weaponOptions,
+        }));
+        return;
+      }
+
+      setMeta((m) => ({
+        ...m,
+        ...baseMeta,
+        rewardPhase: 'module',
+        rewardOptions: moduleOptions,
       }));
     },
     [player, meta.stage, setMeta]
   );
-
-  const finishReward = useCallback(() => {
-    setMeta((m) => ({ ...m, modal: 'module_manage', gameState: GAME_STATES.MODULE_MANAGEMENT }));
-  }, [setMeta]);
 
   const backToReward = useCallback(() => {
     setMeta((m) => ({
@@ -35,13 +83,23 @@ export function useRewardHandlers(player, meta, setPlayer, setMeta, log, startSt
       modal: 'reward',
       choiceContext: null,
       pendingNewWeapon: null,
+      rewardPhase: m.weaponBonusEarned && m.weaponRewardOptions?.length ? 'weapon' : 'module',
+      rewardOptions:
+        m.weaponBonusEarned && m.weaponRewardOptions?.length
+          ? m.weaponRewardOptions
+          : m.moduleRewardOptions,
     }));
   }, [setMeta]);
 
   const skipReward = useCallback(() => {
-    log('보상을 건너뛰었습니다.', 'system');
-    finishReward();
-  }, [log, finishReward]);
+    if (meta.rewardPhase === 'weapon') {
+      log('무기 보너스를 건너뛰었습니다.', 'system');
+      finishReward();
+      return;
+    }
+    log('모듈 보상을 건너뛰었습니다.', 'system');
+    advanceAfterModule();
+  }, [meta.rewardPhase, log, finishReward, advanceAfterModule]);
 
   const pickReward = useCallback(
     (option) => {
@@ -58,7 +116,7 @@ export function useRewardHandlers(player, meta, setPlayer, setMeta, log, startSt
             }));
             return copy;
           }
-          finishReward();
+          advanceAfterModule();
           return copy;
         });
         return;
@@ -93,7 +151,7 @@ export function useRewardHandlers(player, meta, setPlayer, setMeta, log, startSt
         });
       }
     },
-    [log, finishReward, setMeta, setPlayer]
+    [log, finishReward, advanceAfterModule, setMeta, setPlayer]
   );
 
   const replaceWeapon = useCallback(
@@ -120,16 +178,16 @@ export function useRewardHandlers(player, meta, setPlayer, setMeta, log, startSt
         return copy;
       });
       setMeta((m) => ({ ...m, pendingNewModule: null, choiceContext: null }));
-      finishReward();
+      advanceAfterModule();
     },
-    [meta.pendingNewModule, log, finishReward, setMeta, setPlayer]
+    [meta.pendingNewModule, log, advanceAfterModule, setMeta, setPlayer]
   );
 
   const abandonModule = useCallback(() => {
     log('모듈 획득을 포기했습니다.', 'system');
     setMeta((m) => ({ ...m, pendingNewModule: null, choiceContext: null }));
-    finishReward();
-  }, [log, finishReward, setMeta]);
+    advanceAfterModule();
+  }, [log, advanceAfterModule, setMeta]);
 
   const finishModuleManagement = useCallback(() => {
     const nextStage = meta.stage + 1;
