@@ -5,20 +5,11 @@ const NUMBERS = [1, 2, 3, 4, 5, 'K'];
 
 export function generateDeck() {
   const deck = [];
-  for (let i = 0; i < 2; i++) {
-    SUITS.forEach((suit) => {
-      NUMBERS.forEach((num) => {
-        deck.push({ suit, num, id: crypto.randomUUID() });
-      });
+  SUITS.forEach((suit) => {
+    NUMBERS.forEach((num) => {
+      deck.push({ suit, num, id: crypto.randomUUID() });
     });
-  }
-  for (let i = 0; i < 4; i++) {
-    deck.push({
-      suit: SUITS[Math.floor(Math.random() * SUITS.length)],
-      num: NUMBERS[Math.floor(Math.random() * NUMBERS.length)],
-      id: crypto.randomUUID(),
-    });
-  }
+  });
   return shuffle(deck);
 }
 
