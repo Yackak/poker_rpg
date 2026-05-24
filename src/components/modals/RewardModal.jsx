@@ -17,9 +17,9 @@ export default function RewardModal() {
         {meta.rewardOptions.length === 0 ? (
           <div className="text-center text-gray-400 col-span-3">더 이상 획득할 수 있는 보상이 없습니다.</div>
         ) : (
-          meta.rewardOptions.map((option, i) => (
+          meta.rewardOptions.map((option) => (
             <button
-              key={i}
+              key={`${option.type}-${option.weaponId || option.id}`}
               type="button"
               className="pixel-btn p-4 flex flex-col items-center justify-center gap-2 h-32 hover:bg-gray-700"
               onClick={() => pickReward(option)}
