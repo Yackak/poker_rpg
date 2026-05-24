@@ -1,5 +1,6 @@
 import { useGame } from '../context/GameContext';
 import Card from './Card';
+import { hasKeepSlotAccess } from '../game/moduleEffects';
 
 export default function HandArea() {
   const { player, toggleCard, meta, GAME_STATES } = useGame();
@@ -15,7 +16,7 @@ export default function HandArea() {
           onClick={() => canSelect && toggleCard(index)}
         />
       ))}
-      {player.modules.includes('keep_slot') && (
+      {hasKeepSlotAccess(player) && (
         <Card
           card={player.keepSlot}
           selected={player.selectedCardIndices.includes('keep')}

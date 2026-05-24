@@ -8,26 +8,42 @@ import Controls from './Controls';
 import Overlay from './Overlay';
 
 export default function GameLayout() {
-  const { meta, player, floats, initGame, useActiveModule, GAME_STATES } = useGame();
+  const { meta, player, floats, initGame, useActiveModule, log, GAME_STATES } = useGame();
 
   useEffect(() => {
     initGame();
   }, [initGame]);
 
   const handleUseModule = (modId) => {
+    const sel = player.selectedCardIndices.filter((i) => i !== 'keep');
+
     if (modId === 'joker_chip') {
-      if (player.selectedCardIndices.length !== 1 || player.selectedCardIndices.includes('keep')) {
-        return;
-      }
+      if (sel.length !== 1) return;
       const suit = prompt('변경할 문양을 입력하세요 (♠, ♥, ♦, ♣)', '♠');
-      if (suit) useActiveModule(modId, { cardIndex: player.selectedCardIndices[0], suit });
+      if (suit) useActiveModule(modId, { cardIndex: sel[0], suit });
     } else if (modId === 'tuning') {
-      if (player.selectedCardIndices.length !== 1 || player.selectedCardIndices.includes('keep')) {
+      if (sel.length !== 1) return;
+      const increase = confirm('숫자를 올리시겠습니까? (취소 시 내림)');
+      useActiveModule(modId, { cardIndex: sel[0], increase });
+    } else if (modId === 'spade_three_chip' || modId === 'heart_ace_chip') {
+      if (sel.length !== 1) {
+        log('손패에서 카드 1장을 선택하세요.', 'system');
         return;
       }
-      const increase = confirm('숫자를 올리시겠습니까? (취소 시 내림)');
-      useActiveModule(modId, { cardIndex: player.selectedCardIndices[0], increase });
-    } else if (modId === 'overload_chip') {
+      useActiveModule(modId, { cardIndex: sel[0] });
+    } else if (modId === 'copy_discard') {
+      if (sel.length !== 1) {
+        log('복사할 카드 1장을 선택하세요.', 'system');
+        return;
+      }
+      useActiveModule(modId, { cardIndex: sel[0] });
+    } else if (modId === 'delay_draw') {
+      if (sel.length !== 2) {
+        log('버릴 카드 2장을 선택하세요.', 'system');
+        return;
+      }
+      useActiveModule(modId, { cardIndices: sel });
+    } else if (modId === 'empty_deck_rescue' || modId === 'combat_double_draw' || modId === 'overload_chip') {
       useActiveModule(modId, {});
     }
   };

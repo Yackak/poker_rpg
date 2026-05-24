@@ -21,6 +21,18 @@ export function createCombatState() {
     minimalistHeart: false,
     firstFiveUsedThisTurn: false,
     activeModulesUsed: {},
+    turnCounter: 0,
+    attackedLastTurn: false,
+    attackedThisTurn: false,
+    rerollUsedThisTurn: false,
+    saveProtocolBonus: 0,
+    firstRerollFreeUsed: false,
+    rerollDiscardCount: 0,
+    handsCompletedThisTurn: 0,
+    emptyHandPanicUsedThisTurn: false,
+    flushDamageBonus: 0,
+    pendingDelayDraw: 0,
+    combatDrawUsed: false,
   };
 }
 

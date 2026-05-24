@@ -3,7 +3,7 @@ import { buildAttackResult, executeReroll, GAME_STATES } from './gameEngine';
 import { applyEndTurnCleanup, applyPlayerTurnStart } from '../game/playerTurn';
 import { processSingleEnemyTurn, handleEnemyDeath } from '../game/enemyTurn';
 
-export function useCombatHandlers(setPlayer, setMeta, log, showFloatAtEnemy, onVictory) {
+export function useCombatHandlers(setPlayer, setMeta, log, showFloatAtEnemy, onVictory, getState) {
   const toggleCard = useCallback(
     (index) => {
       setPlayer((p) => {
@@ -18,36 +18,34 @@ export function useCombatHandlers(setPlayer, setMeta, log, showFloatAtEnemy, onV
   );
 
   const handleReroll = useCallback(() => {
+    const { meta: m } = getState();
     setPlayer((p) => {
       const copy = structuredClone(p);
-      if (executeReroll(copy, log)) return copy;
+      if (executeReroll(copy, m.enemies, log)) return copy;
       return p;
     });
-  }, [log, setPlayer]);
+  }, [getState, log, setPlayer]);
 
-  const handleAttack = useCallback(
-    (getState) => {
-      const { player: p, meta: m } = getState();
-      const copy = structuredClone(p);
-      const enemiesCopy = structuredClone(m.enemies);
-      const result = buildAttackResult(copy, enemiesCopy, log, showFloatAtEnemy);
-      if (!result) return;
+  const handleAttack = useCallback(() => {
+    const { player: p, meta: m } = getState();
+    const copy = structuredClone(p);
+    const enemiesCopy = structuredClone(m.enemies);
+    const result = buildAttackResult(copy, enemiesCopy, log, showFloatAtEnemy);
+    if (!result) return;
 
-      let moduleDrop = m.moduleDropEarned;
-      if (result.targetDead && enemiesCopy.length > 0) {
-        const dead = enemiesCopy.shift();
-        const deathResult = handleEnemyDeath(dead, copy, log);
-        if (deathResult.moduleDrop) moduleDrop = true;
-      }
+    let moduleDrop = m.moduleDropEarned;
+    if (result.targetDead && enemiesCopy.length > 0) {
+      const dead = enemiesCopy.shift();
+      const deathResult = handleEnemyDeath(dead, copy, log);
+      if (deathResult.moduleDrop) moduleDrop = true;
+    }
 
-      setPlayer(copy);
-      setMeta({ ...m, enemies: enemiesCopy, moduleDropEarned: moduleDrop });
-      if (enemiesCopy.length === 0) {
-        setTimeout(() => onVictory(moduleDrop), 1000);
-      }
-    },
-    [log, showFloatAtEnemy, onVictory, setMeta, setPlayer]
-  );
+    setPlayer(copy);
+    setMeta({ ...m, enemies: enemiesCopy, moduleDropEarned: moduleDrop });
+    if (enemiesCopy.length === 0) {
+      setTimeout(() => onVictory(moduleDrop), 1000);
+    }
+  }, [getState, log, showFloatAtEnemy, onVictory, setMeta, setPlayer]);
 
   const runEnemyTurns = useCallback(
     (enemies, playerSnapshot, moduleDropEarned) => {
@@ -57,10 +55,15 @@ export function useCombatHandlers(setPlayer, setMeta, log, showFloatAtEnemy, onV
       let moduleDrop = moduleDropEarned;
 
       const finishPlayerTurn = () => {
-        setMeta((m) => ({ ...m, gameState: GAME_STATES.PLAYER_TURN, enemies: currentEnemies, moduleDropEarned: moduleDrop }));
+        setMeta((m) => ({
+          ...m,
+          gameState: GAME_STATES.PLAYER_TURN,
+          enemies: currentEnemies,
+          moduleDropEarned: moduleDrop,
+        }));
         setPlayer((p) => {
           const copy = structuredClone({ ...p, ...currentPlayer });
-          applyPlayerTurnStart(copy, log);
+          applyPlayerTurnStart(copy, log, currentEnemies);
           return copy;
         });
       };
@@ -114,14 +117,14 @@ export function useCombatHandlers(setPlayer, setMeta, log, showFloatAtEnemy, onV
   const handleEndTurn = useCallback(() => {
     setPlayer((p) => {
       const copy = structuredClone(p);
-      applyEndTurnCleanup(copy);
+      applyEndTurnCleanup(copy, log);
       setMeta((m) => {
         setTimeout(() => runEnemyTurns(m.enemies, copy, m.moduleDropEarned), 0);
         return { ...m, gameState: GAME_STATES.ENEMY_TURN };
       });
       return copy;
     });
-  }, [runEnemyTurns, setMeta, setPlayer]);
+  }, [log, runEnemyTurns, setMeta, setPlayer]);
 
   return { toggleCard, handleReroll, handleAttack, handleEndTurn };
 }
