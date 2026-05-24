@@ -10,19 +10,13 @@ export default function Controls() {
   const previewShield =
     selectedCards.length > 0 ? calcShieldFromCards(selectedCards, player) : 0;
 
+  const btnClass = 'pixel-btn py-2 px-1 text-[10px] md:text-xs leading-tight';
+
   return (
-    <div className="w-24 md:w-32 flex flex-col gap-2 ml-2 shrink-0">
+    <div className="w-36 md:w-44 grid grid-cols-2 gap-2 ml-2 shrink-0">
       <button
         type="button"
-        className="pixel-btn py-2 text-xs md:text-sm text-blue-300"
-        disabled={!isPlayerTurn || player.rerolls <= 0}
-        onClick={handleReroll}
-      >
-        리롤 ({player.rerolls})
-      </button>
-      <button
-        type="button"
-        className="pixel-btn py-3 text-sm md:text-base text-red-400 font-bold"
+        className={`${btnClass} text-red-400 font-bold`}
         disabled={!isPlayerTurn || player.selectedCardIndices.length === 0}
         onClick={handleAttack}
       >
@@ -30,7 +24,7 @@ export default function Controls() {
       </button>
       <button
         type="button"
-        className="pixel-btn py-2 text-xs md:text-sm text-cyan-300 font-bold"
+        className={`${btnClass} text-cyan-300 font-bold`}
         disabled={!isPlayerTurn || player.selectedCardIndices.length === 0}
         onClick={handleDefend}
       >
@@ -38,11 +32,19 @@ export default function Controls() {
       </button>
       <button
         type="button"
-        className="pixel-btn py-2 text-xs md:text-sm text-gray-400"
+        className={`${btnClass} text-blue-300`}
+        disabled={!isPlayerTurn || player.rerolls <= 0}
+        onClick={handleReroll}
+      >
+        리롤 ({player.rerolls})
+      </button>
+      <button
+        type="button"
+        className={`${btnClass} text-gray-400`}
         disabled={!isPlayerTurn}
         onClick={handleEndTurn}
       >
-        턴 종료
+        턴종료
       </button>
     </div>
   );
