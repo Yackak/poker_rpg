@@ -103,6 +103,14 @@ export function generateModuleRewards(player, opts = {}) {
   return pickNormalModuleRewards(unowned, weights, 3);
 }
 
+/** Game start: 3 module choices using the same tier weights as normal battle rewards. */
+export function generateStartModuleOptions(weights = DEFAULT_MODULE_TIER_WEIGHTS) {
+  return generateModuleRewards(
+    { modules: [], inventoryModules: [] },
+    { isBossVictory: false, tierWeights: weights }
+  );
+}
+
 /** 매 3전투마다 normal -6%, rare +5%, epic +1%. */
 export function driftModuleTierWeights(weights = DEFAULT_MODULE_TIER_WEIGHTS) {
   return {

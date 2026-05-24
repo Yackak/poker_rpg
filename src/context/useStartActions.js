@@ -4,6 +4,7 @@ import { generateDeck } from '../utils/deck';
 import { applyPlayerTurnStart } from '../game/playerTurn';
 import { createPlayer, DEFAULT_MODULE_TIER_WEIGHTS } from '../game/constants';
 import { isBossRound } from '../game/spawnEnemies';
+import { generateStartModuleOptions } from '../game/rewardLogic';
 
 export function useStartActions(setPlayer, setMeta, log, clearLogs) {
   const startRound = useCallback(
@@ -48,6 +49,7 @@ export function useStartActions(setPlayer, setMeta, log, clearLogs) {
       moduleRewardOptions: [],
       weaponRewardOptions: [],
       startStep: 'weapon',
+      startModuleOptions: [],
       modal: 'start',
       rewardOptions: [],
       choiceContext: null,
@@ -64,7 +66,8 @@ export function useStartActions(setPlayer, setMeta, log, clearLogs) {
     (wId, weaponName) => {
       setPlayer((p) => ({ ...p, weapons: [{ id: wId, level: 1 }] }));
       log(`[${weaponName}]을(를) 선택했습니다.`, 'system');
-      setMeta((m) => ({ ...m, startStep: 'module' }));
+      const startModuleOptions = generateStartModuleOptions();
+      setMeta((m) => ({ ...m, startStep: 'module', startModuleOptions }));
     },
     [log, setMeta, setPlayer]
   );

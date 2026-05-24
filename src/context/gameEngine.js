@@ -40,6 +40,7 @@ export function createInitialMeta() {
     moduleRewardOptions: [],
     weaponRewardOptions: [],
     startStep: 'weapon',
+    startModuleOptions: [],
     modal: 'start',
     rewardOptions: [],
     choiceContext: null,

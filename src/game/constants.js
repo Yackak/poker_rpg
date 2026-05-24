@@ -17,8 +17,6 @@ export const DEFAULT_MODULE_TIER_WEIGHTS = { normal: 60, rare: 37, epic: 3 };
 
 export const START_WEAPONS = ['club', 'thorn', 'eclipse'];
 
-export const START_MODULES = ['minimalist', 'emergency_exit'];
-
 export function createCombatState() {
   return {
     emergencyUsed: false,
