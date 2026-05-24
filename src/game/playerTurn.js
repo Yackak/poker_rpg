@@ -2,8 +2,10 @@ import { drawCards } from '../utils/deck';
 import {
   applyTurnStartModules,
   applyTurnEndModules,
-  applyCombatStartModules,
+  applyTurnStartAfterHandRefill,
+  applyCombatStartDrawBypass,
   onDeckShuffled,
+  createRandomCard,
 } from './moduleEffects';
 
 function drawWithModules(player, amount, log) {
@@ -15,9 +17,8 @@ export function applyPlayerTurnStart(player, log, enemies = [], isCombatStart = 
   player.selectedCardIndices = [];
   player.shield = 0;
   player.combatState.cardsUsedThisTurn = [];
-  player.combatState.firstFiveUsedThisTurn = false;
 
-  applyTurnStartModules(player, log, enemies);
+  applyTurnStartModules(player, log);
 
   let drawAmount = 6 - player.hand.length;
 
@@ -28,12 +29,9 @@ export function applyPlayerTurnStart(player, log, enemies = [], isCombatStart = 
   }
 
   if (player.modules.includes('spade_loader')) {
-    const sIdx = player.deck.findIndex((c) => c.suit === '♠');
-    if (sIdx > -1) {
-      player.hand.push(player.deck.splice(sIdx, 1)[0]);
-      drawAmount--;
-      log('[지정 칩] 덱에서 스페이드를 확정 드로우했습니다.', 'system');
-    }
+    player.hand.push(createRandomCard({ suit: '♠' }));
+    drawAmount--;
+    log('[지정칩] 스페이드 1장을 생성하여 손패에 더했습니다.', 'system');
   }
 
   if (player.combatState.minimalistHeart) {
@@ -42,6 +40,8 @@ export function applyPlayerTurnStart(player, log, enemies = [], isCombatStart = 
     drawAmount--;
     log('[미니멀리스트] 지난 턴 조건을 만족하여 하트 3을 얻었습니다.', 'system');
   }
+
+  drawAmount = Math.max(0, drawAmount);
 
   if (drawAmount > 0) {
     const { drawn, reshuffled } = drawWithModules(player, drawAmount, log);
@@ -54,8 +54,10 @@ export function applyPlayerTurnStart(player, log, enemies = [], isCombatStart = 
     player.combatState.overloadCooldown--;
   }
 
+  applyTurnStartAfterHandRefill(player, log, enemies);
+
   if (isCombatStart) {
-    applyCombatStartModules(player, log);
+    applyCombatStartDrawBypass(player, log);
   }
 
   if (player.modules.includes('holo_clone') && player.hand.length > 0) {

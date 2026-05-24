@@ -8,7 +8,7 @@ export default function Controls() {
   const isPlayerTurn = meta.gameState === GAME_STATES.PLAYER_TURN;
   const selectedCards = getSelectedCards(player);
   const previewShield =
-    selectedCards.length > 0 ? calcShieldFromCards(selectedCards, player) : 0;
+    selectedCards.length > 0 ? calcShieldFromCards(selectedCards) : 0;
 
   const btnClass = 'pixel-btn py-2 px-1 text-[10px] md:text-xs leading-tight';
 

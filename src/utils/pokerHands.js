@@ -1,28 +1,29 @@
 import { WEAPONS_DB } from '../data/weapons';
 
-export function mapCardsWithKingsDecree(cards, hasKingsDecree, firstFiveUsed) {
-  const active = hasKingsDecree && !firstFiveUsed;
-  return cards.map((c) => (active && c.num === 5 ? { ...c, num: 'K' } : c));
-}
-
 export function checkHandRequirement(mappedCards, reqType, reqCount) {
   if (mappedCards.length < reqCount) return false;
 
   if (reqType === 'triple') {
     const counts = {};
-    mappedCards.forEach((c) => { counts[c.num] = (counts[c.num] || 0) + 1; });
+    mappedCards.forEach((c) => {
+      counts[c.num] = (counts[c.num] || 0) + 1;
+    });
     return Object.values(counts).some((v) => v >= reqCount);
   }
 
   if (reqType === 'pair') {
     const counts = {};
-    mappedCards.forEach((c) => { counts[c.num] = (counts[c.num] || 0) + 1; });
+    mappedCards.forEach((c) => {
+      counts[c.num] = (counts[c.num] || 0) + 1;
+    });
     return Object.values(counts).filter((v) => v >= 2).length >= reqCount;
   }
 
   if (reqType === 'flush') {
     const counts = {};
-    mappedCards.forEach((c) => { counts[c.suit] = (counts[c.suit] || 0) + 1; });
+    mappedCards.forEach((c) => {
+      counts[c.suit] = (counts[c.suit] || 0) + 1;
+    });
     return Object.values(counts).some((v) => v >= reqCount);
   }
 
@@ -53,15 +54,11 @@ export function isWeaponActive(weapon, selectedCards, modules, combatState) {
   if (!wInfo) return false;
 
   let reqCount = wInfo.reqCount;
-  if (modules.includes('one_way')) reqCount = Math.max(1, reqCount - 1);
+  if (modules.includes('one_way') && !combatState.oneWayReqConsumed) {
+    reqCount = Math.max(1, reqCount - 1);
+  }
 
-  const mapped = mapCardsWithKingsDecree(
-    selectedCards,
-    modules.includes('kings_decree'),
-    combatState.firstFiveUsedThisTurn
-  );
-
-  return checkHandRequirement(mapped, wInfo.reqType, reqCount);
+  return checkHandRequirement(selectedCards, wInfo.reqType, reqCount);
 }
 
 export function getSelectedCards(player) {

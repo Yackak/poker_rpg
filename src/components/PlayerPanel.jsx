@@ -1,6 +1,7 @@
 import { WEAPONS_DB, getReqLabel } from '../data/weapons';
 import { MODULES_DB } from '../data/modules';
 import { isWeaponActive, getSelectedCards } from '../utils/pokerHands';
+import { getEffectiveWeaponLevel } from '../utils/weaponLevel';
 import ModuleChip from './ModuleChip';
 
 export default function PlayerPanel({ player, onUseModule, gameState }) {
@@ -34,6 +35,7 @@ export default function PlayerPanel({ player, onUseModule, gameState }) {
       <div className="flex gap-2">
         {player.weapons.map((w) => {
           const wInfo = WEAPONS_DB[w.id];
+          const effLv = getEffectiveWeaponLevel(w, player);
           const active = isWeaponActive(w, selected, player.modules, player.combatState);
           return (
             <div
@@ -41,13 +43,16 @@ export default function PlayerPanel({ player, onUseModule, gameState }) {
               className={`flex-1 pixel-box p-2 flex flex-col justify-center items-center text-center ${active ? 'border-yellow-400 bg-yellow-900/20' : ''}`}
             >
               <div className="text-xs md:text-sm font-bold text-blue-300 mb-1">
-                {wInfo.name} <span className="text-[10px] text-yellow-500">LV.{w.level}</span>
+                {wInfo.name} <span className="text-[10px] text-yellow-500">LV.{effLv}</span>
+                {effLv !== w.level && (
+                  <span className="text-[9px] text-gray-500"> (실제 {w.level})</span>
+                )}
               </div>
               <div className="text-[10px] text-gray-400">
                 [{wInfo.reqCount}
                 {getReqLabel(wInfo.reqType)}]
               </div>
-              <div className="text-[10px] text-orange-300 mt-1">{wInfo.effectDesc(w.level)}</div>
+              <div className="text-[10px] text-orange-300 mt-1">{wInfo.effectDesc(effLv)}</div>
             </div>
           );
         })}

@@ -1,6 +1,7 @@
 import { shuffle } from '../utils/shuffle';
 import { WEAPONS_DB, getReqLabel } from '../data/weapons';
 import { MODULES_DB } from '../data/modules';
+import { DEFAULT_MODULE_TIER_WEIGHTS } from './constants';
 
 function buildUpgradeOptions(player) {
   return player.weapons
@@ -31,8 +32,16 @@ function buildNewWeaponOptions(player, stage) {
     });
 }
 
-export function buildVictoryRewards(player, stage, weaponBonus = false) {
-  const moduleOptions = generateModuleRewards(player).map((m) => ({
+/**
+ * Stage clear (= 보스 처치) 시 legend 풀. 일반 전투 보상 추가 시 `{ isBossVictory: false }` 와 등급 확률을 연동.
+ */
+export function buildVictoryRewards(
+  player,
+  stage,
+  weaponBonus = false,
+  moduleRewardOpts = { isBossVictory: true }
+) {
+  const moduleOptions = generateModuleRewards(player, moduleRewardOpts).map((m) => ({
     type: 'module',
     id: m.id,
     data: m,
@@ -44,11 +53,41 @@ export function buildVictoryRewards(player, stage, weaponBonus = false) {
   return { moduleOptions, weaponOptions };
 }
 
-export function generateModuleRewards(player) {
-  const unowned = Object.values(MODULES_DB).filter(
+export function generateModuleRewards(player, opts = {}) {
+  const isBossVictory = opts.isBossVictory !== false;
+
+  let pool = Object.values(MODULES_DB).filter(
     (m) => !player.modules.includes(m.id) && !player.inventoryModules.includes(m.id)
   );
-  return shuffle([...unowned]).slice(0, 3);
+
+  if (isBossVictory) {
+    pool = pool.filter((m) => m.rarity === 'legend');
+  }
+
+  return shuffle([...pool]).slice(0, 3);
+}
+
+/** 매 3전투마다 호출하면 될 드리프트 (추후 일반 전투 보상 연동용). normal -6%, rare +5%, epic +1%. */
+export function driftModuleTierWeights(weights = DEFAULT_MODULE_TIER_WEIGHTS) {
+  const next = {
+    normal: Math.max(0, weights.normal - 6),
+    rare: Math.min(100, weights.rare + 5),
+    epic: Math.min(100, weights.epic + 1),
+  };
+  return next;
+}
+
+/**
+ * 일반 전투 보상용 등급 굴림 스텁. 추후 확률/드리프트를 연결하세요.
+ * @returns {'normal' | 'rare' | 'epic'}
+ */
+export function rollModuleTier(_weights = DEFAULT_MODULE_TIER_WEIGHTS) {
+  return 'normal';
+}
+
+/** 일반 전투에서 선택지 3개 뽑기 스텁 (등급 풀·드리프트 연동 예정). */
+export function generateNormalFightModuleRewards(_player, _weights = DEFAULT_MODULE_TIER_WEIGHTS) {
+  return [];
 }
 
 export function generateWeaponRewards(player, stage) {
@@ -86,8 +125,10 @@ export function generateWeaponRewards(player, stage) {
 export function applyWeaponReward(player, type, value, log) {
   if (type === 'upgrade') {
     const w = player.weapons.find((wp) => wp.id === value);
-    if (w) w.level++;
-    log(`${WEAPONS_DB[value].name} LV.${w.level} 강화!`, 'system');
+    if (w) {
+      w.level++;
+      log(`${WEAPONS_DB[value].name} LV.${w.level} 강화!`, 'system');
+    }
     return { needsReplace: false };
   }
 

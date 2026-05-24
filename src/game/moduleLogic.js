@@ -62,6 +62,7 @@ export function replaceModule(player, item, newModId, log) {
 export {
   useCopyDiscard,
   useDelayDraw,
+  useBloodDraw,
   useEmptyDeckRescue,
   useCombatDoubleDraw,
   useSpadeThreeChip,

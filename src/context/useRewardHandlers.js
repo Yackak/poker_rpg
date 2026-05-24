@@ -38,7 +38,8 @@ export function useRewardHandlers(player, meta, setPlayer, setMeta, log, startSt
       const { moduleOptions, weaponOptions } = buildVictoryRewards(
         player,
         meta.stage,
-        weaponBonus
+        weaponBonus,
+        { isBossVictory: true }
       );
 
       const baseMeta = {

@@ -14,6 +14,7 @@ import {
   useOverloadChip,
   useCopyDiscard,
   useDelayDraw,
+  useBloodDraw,
   useEmptyDeckRescue,
   useCombatDoubleDraw,
   useSpadeThreeChip,
@@ -84,7 +85,9 @@ export function GameProvider({ children }) {
         } else if (modId === 'copy_discard') {
           useCopyDiscard(copy, payload.cardIndex, log);
         } else if (modId === 'delay_draw') {
-          useDelayDraw(copy, payload.cardIndices, log);
+          useDelayDraw(copy, log);
+        } else if (modId === 'blood_draw') {
+          useBloodDraw(copy, log);
         } else if (modId === 'empty_deck_rescue') {
           useEmptyDeckRescue(copy, log);
         } else if (modId === 'combat_double_draw') {

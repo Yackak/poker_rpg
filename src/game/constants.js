@@ -9,6 +9,9 @@ export const GAME_STATES = {
   GAMEOVER: 'GAMEOVER',
 };
 
+/** Initial module reward tier weights [normal%, rare%, epic%] — drift every 3 battles (future hook). */
+export const DEFAULT_MODULE_TIER_WEIGHTS = { normal: 60, rare: 37, epic: 3 };
+
 export const START_WEAPONS = ['club', 'thorn', 'eclipse'];
 
 export const START_MODULES = ['minimalist', 'emergency_exit'];
@@ -19,7 +22,6 @@ export function createCombatState() {
     overloadCooldown: 0,
     drawPenalty: 0,
     minimalistHeart: false,
-    firstFiveUsedThisTurn: false,
     activeModulesUsed: {},
     turnCounter: 0,
     attackedLastTurn: false,
@@ -29,7 +31,8 @@ export function createCombatState() {
     firstRerollFreeUsed: false,
     rerollDiscardCount: 0,
     handsCompletedThisTurn: 0,
-    emptyHandPanicUsedThisTurn: false,
+    emptyHandDrawUsedThisTurn: false,
+    oneWayReqConsumed: false,
     flushDamageBonus: 0,
     pendingDelayDraw: 0,
     combatDrawUsed: false,

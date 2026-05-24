@@ -30,6 +30,11 @@ export function randomMorphCard(card) {
   card.num = NUMBERS[Math.floor(Math.random() * NUMBERS.length)];
 }
 
+/** Deck draws that ignore hand size cap — same as drawCards; call only after normal refill phase. */
+export function drawCardsIgnoringHandCap(player, amount, onReshuffle) {
+  return drawCards(player, amount, onReshuffle);
+}
+
 function healPlayer(player, amount, log, source) {
   if (amount <= 0) return;
   const before = player.hp;
@@ -62,26 +67,14 @@ export function morphRandomHandCard(player, enemies, log, sourceName) {
 export function applyEmptyHandDraws(player, log, enemies = []) {
   if (player.hand.length > 0) return;
 
-  if (
-    player.modules.includes('empty_hand_panic') &&
-    !player.combatState.emptyHandPanicUsedThisTurn
-  ) {
-    player.combatState.emptyHandPanicUsedThisTurn = true;
+  if (player.modules.includes('empty_hand_draw') && !player.combatState.emptyHandDrawUsedThisTurn) {
+    player.combatState.emptyHandDrawUsedThisTurn = true;
     const { drawn } = drawCards(player, 3);
     player.hand.push(...drawn);
-    log('[공백 패닉] 손패가 비어 3장을 드로우합니다. (턴당 1회)', 'system');
+    log('[공허 드로우] 손패가 비어 3장을 드로우합니다. (턴당 1회)', 'system');
   }
 
-  if (player.modules.includes('empty_hand_draw')) {
-    const { drawn } = drawCards(player, 3);
-    player.hand.push(...drawn);
-    log('[공허 드로우] 손패가 비어 3장을 드로우합니다.', 'system');
-  }
-
-  if (
-    player.modules.includes('emergency_exit') &&
-    !player.combatState.emergencyUsed
-  ) {
+  if (player.modules.includes('emergency_exit') && !player.combatState.emergencyUsed) {
     player.combatState.emergencyUsed = true;
     const { drawn } = drawCards(player, 3);
     player.hand.push(...drawn);
@@ -96,77 +89,71 @@ export function onDeckShuffled(player, log) {
   log('[셔플 드로우] 덱을 섞으며 카드 1장을 드로우했습니다.', 'system');
 }
 
-export function applyCombatStartModules(player, log) {
-  if (player.modules.includes('combat_start_draw')) {
-    const { drawn } = drawCards(player, 1);
-    player.hand.push(...drawn);
-    log('[전투 개시 드로우] 전투 시작! 카드 1장 추가 드로우.', 'system');
-  }
+export function applyCombatStartDrawBypass(player, log) {
+  if (!player.modules.includes('combat_start_draw')) return;
+  const { drawn } = drawCardsIgnoringHandCap(player, 1, () => onDeckShuffled(player, log));
+  player.hand.push(...drawn);
+  log('[전투 개시 드로우] 전투 시작! 카드 1장 추가 드로우 (손패 상한 무시).', 'system');
 }
 
-export function applyTurnStartModules(player, log, enemies = []) {
+/** Turn counter and flags; effects that do not compete with 6-card refill timing. */
+export function applyTurnStartModules(player, log) {
   player.combatState.turnCounter = (player.combatState.turnCounter || 0) + 1;
   player.combatState.attackedThisTurn = false;
   player.combatState.rerollUsedThisTurn = false;
   player.combatState.firstRerollFreeUsed = false;
   player.combatState.rerollDiscardCount = 0;
   player.combatState.handsCompletedThisTurn = 0;
-  player.combatState.emptyHandPanicUsedThisTurn = false;
+  player.combatState.emptyHandDrawUsedThisTurn = false;
+  player.combatState.oneWayReqConsumed = false;
   player.combatState.activeModulesUsed = {};
-
-  if (player.combatState.pendingDelayDraw > 0) {
-    const { drawn } = drawCards(player, player.combatState.pendingDelayDraw);
-    player.hand.push(...drawn);
-    log(`[지연 드로우] 예약된 카드 ${player.combatState.pendingDelayDraw}장 드로우.`, 'system');
-    player.combatState.pendingDelayDraw = 0;
-  }
-
-  if (player.modules.includes('blood_draw')) {
-    player.hp = Math.max(0, player.hp - 3);
-    log('[피의 계약] 체력 3을 잃었습니다.', 'damage');
-    const { drawn } = drawCards(player, 3);
-    player.hand.push(...drawn);
-    log('[피의 계약] 카드 3장 드로우.', 'system');
-  }
-
-  if (player.modules.includes('patience_draw') && !player.combatState.attackedLastTurn) {
-    const { drawn } = drawCards(player, 1);
-    player.hand.push(...drawn);
-    log('[인내의 시계] 지난 턴 공격하지 않아 카드 1장 추가 드로우.', 'system');
-  }
 
   if (player.modules.includes('turn_heal')) {
     healPlayer(player, 1, log, '턴 회복기');
-  }
-
-  if (
-    player.modules.includes('biennial_draw') &&
-    player.combatState.turnCounter % 2 === 0
-  ) {
-    const { drawn } = drawCards(player, 1);
-    player.hand.push(...drawn);
-    log('[격턴 드로우] 2턴마다 카드 1장 드로우.', 'system');
-  }
-
-  if (
-    player.modules.includes('biennial_suit_spawn') &&
-    player.combatState.turnCounter % 2 === 0
-  ) {
-    const suit = SUITS[Math.floor(Math.random() * SUITS.length)];
-    for (let i = 0; i < 3; i++) {
-      player.hand.push(createRandomCard({ suit }));
-    }
-    log(`[문양 생성기] ${suit} 카드 3장 생성!`, 'system');
-  }
-
-  if (player.modules.includes('turn_morph')) {
-    morphRandomHandCard(player, enemies, log, '일일 변형기');
   }
 
   if (player.combatState.saveProtocolBonus > 0) {
     player.rerolls += player.combatState.saveProtocolBonus;
     log(`[절약 프로토콜] 리롤권 +${player.combatState.saveProtocolBonus}.`, 'system');
     player.combatState.saveProtocolBonus = 0;
+  }
+}
+
+/**
+ * Draws / spawns after normal "fill to 6" — may exceed 6 cards in hand.
+ */
+export function applyTurnStartAfterHandRefill(player, log, enemies = []) {
+  const onReshuffle = () => onDeckShuffled(player, log);
+
+  if (player.combatState.pendingDelayDraw > 0) {
+    const n = player.combatState.pendingDelayDraw;
+    const { drawn } = drawCardsIgnoringHandCap(player, n, onReshuffle);
+    player.hand.push(...drawn);
+    log(`[지연 드로우] 예약된 카드 ${n}장 드로우 (손패 상한 무시).`, 'system');
+    player.combatState.pendingDelayDraw = 0;
+  }
+
+  if (player.modules.includes('patience_draw') && !player.combatState.attackedLastTurn) {
+    const { drawn } = drawCards(player, 1, onReshuffle);
+    player.hand.push(...drawn);
+    log('[인내의 시계] 지난 턴 공격하지 않아 카드 1장 추가 드로우.', 'system');
+  }
+
+  if (player.modules.includes('biennial_draw') && player.combatState.turnCounter % 2 === 0) {
+    const { drawn } = drawCardsIgnoringHandCap(player, 1, onReshuffle);
+    player.hand.push(...drawn);
+    log('[격턴 드로우] 2턴마다 카드 1장 추가 드로우 (손패 상한 무시).', 'system');
+  }
+
+  if (player.modules.includes('biennial_suit_spawn') && player.combatState.turnCounter % 2 === 0) {
+    const suit = SUITS[Math.floor(Math.random() * SUITS.length)];
+    const card = createRandomCard({ suit, num: 3 });
+    player.hand.push(card);
+    log(`[문양 생성기] ${suit} 숫자 3 카드 1장 생성!`, 'system');
+  }
+
+  if (player.modules.includes('turn_morph')) {
+    morphRandomHandCard(player, enemies, log, '일일 변형기');
   }
 }
 
@@ -202,16 +189,6 @@ function hasConsecutiveTwoPlus(cards) {
   return false;
 }
 
-function drawSpadeFromDeck(player, log) {
-  const sIdx = player.deck.findIndex((c) => c.suit === '♠');
-  if (sIdx > -1) {
-    player.hand.push(player.deck.splice(sIdx, 1)[0]);
-    log('[스페이드 회수기] 덱에서 ♠ 1장 확정 드로우.', 'system');
-    return true;
-  }
-  return false;
-}
-
 export function applyRerollModules(player, discardedCards, enemies, log) {
   player.combatState.rerollUsedThisTurn = true;
   player.combatState.rerollDiscardCount += discardedCards.length;
@@ -220,13 +197,6 @@ export function applyRerollModules(player, discardedCards, enemies, log) {
     if (Math.random() < 0.5) {
       player.rerolls++;
       log('[페어 환수 칩] 50% 성공! 리롤권 +1.', 'heal');
-    }
-  }
-
-  if (player.modules.includes('spade_recycler')) {
-    const spadeCount = discardedCards.filter((c) => c.suit === '♠').length;
-    for (let i = 0; i < spadeCount; i++) {
-      drawSpadeFromDeck(player, log);
     }
   }
 
@@ -261,17 +231,6 @@ export function applyPostRerollModules(player, log) {
   }
 }
 
-function effectiveNum(card, player) {
-  if (
-    player.modules.includes('kings_decree') &&
-    player.combatState.firstFiveUsedThisTurn &&
-    card.num === 5
-  ) {
-    return 'K';
-  }
-  return card.num;
-}
-
 export function calcModuleDamageMultiplier(player, weaponId, submittedCards) {
   const wInfo = WEAPONS_DB[weaponId];
   let mult = 1;
@@ -285,7 +244,7 @@ export function calcModuleDamageMultiplier(player, weaponId, submittedCards) {
   if (
     wInfo.reqType === 'triple' &&
     player.modules.includes('k_triple_amp') &&
-    submittedCards.some((c) => effectiveNum(c, player) === 'K')
+    submittedCards.some((c) => c.num === 'K')
   ) {
     mult *= 1.5;
   }
@@ -315,7 +274,7 @@ export function applyPostAttackModules(
   player.combatState.handsCompletedThisTurn += 1;
 
   if (player.modules.includes('mother') && submittedCards.some((c) => c.suit === '♥')) {
-    healPlayer(player, 10, log, '어머니');
+    healPlayer(player, 5, log, '어머니');
   }
 
   activeWeapons.forEach((w) => {
@@ -370,16 +329,22 @@ export function useCopyDiscard(player, cardIndex, log) {
   return true;
 }
 
-export function useDelayDraw(player, cardIndices, log) {
-  if (cardIndices.length !== 2) return false;
-  const sorted = [...cardIndices].sort((a, b) => b - a);
+export function useDelayDraw(player, log) {
+  if (player.hand.length < 2) {
+    log('[지연 드로우] 손패 2장 이상 필요.', 'system');
+    return false;
+  }
+  const i1 = Math.floor(Math.random() * player.hand.length);
+  let i2 = Math.floor(Math.random() * player.hand.length);
+  while (i2 === i1) i2 = Math.floor(Math.random() * player.hand.length);
+  const sorted = [i1, i2].sort((a, b) => b - a);
   const discarded = [];
   sorted.forEach((i) => discarded.push(player.hand.splice(i, 1)[0]));
   addToDiscard(player, discarded);
   player.combatState.pendingDelayDraw = 1;
   player.combatState.activeModulesUsed.delay_draw = true;
   player.selectedCardIndices = [];
-  log('[지연 드로우] 카드 2장 버림. 다음 턴 1장 드로우 예약.', 'system');
+  log('[지연 드로우] 무작위 카드 2장 버림. 다음 턴 1장 추가 드로우 예약.', 'system');
   return true;
 }
 
@@ -405,6 +370,17 @@ export function useCombatDoubleDraw(player, log) {
   player.combatState.combatDrawUsed = true;
   player.combatState.activeModulesUsed.combat_double_draw = true;
   log('[전투 더블 드로우] 카드 2장 드로우!', 'system');
+  return true;
+}
+
+export function useBloodDraw(player, log) {
+  player.hp = Math.max(0, player.hp - 3);
+  log('[피의 계약] 체력 3을 잃었습니다.', 'damage');
+  const { drawn } = drawCards(player, 3, () => onDeckShuffled(player, log));
+  player.hand.push(...drawn);
+  player.combatState.activeModulesUsed.blood_draw = true;
+  player.selectedCardIndices = [];
+  log('[피의 계약] 카드 3장 드로우.', 'system');
   return true;
 }
 

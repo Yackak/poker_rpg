@@ -1,7 +1,7 @@
 import { getSelectedCards, isWeaponActive } from '../utils/pokerHands';
 import { WEAPONS_DB } from '../data/weapons';
 import { MODULES_DB } from '../data/modules';
-import { createCombatState, createPlayer, GAME_STATES, MAX_STAGE } from '../game/constants';
+import { createCombatState, createPlayer, GAME_STATES, MAX_STAGE, DEFAULT_MODULE_TIER_WEIGHTS } from '../game/constants';
 import { spawnEnemies } from '../game/spawnEnemies';
 import { applyPlayerTurnStart, applyEndTurnCleanup } from '../game/playerTurn';
 import {
@@ -14,6 +14,7 @@ import {
   calcShieldFromCards,
 } from '../game/combatActions';
 import { applyPostAttackModules } from '../game/moduleEffects';
+import { getEffectiveWeaponLevel } from '../utils/weaponLevel';
 import { processSingleEnemyTurn, handleEnemyDeath } from '../game/enemyTurn';
 import {
   generateModuleRewards,
@@ -44,6 +45,8 @@ export function createInitialMeta() {
     pendingNewWeapon: null,
     pendingNewModule: null,
     shake: false,
+    battlesSinceTierShift: 0,
+    moduleTierWeights: { ...DEFAULT_MODULE_TIER_WEIGHTS },
   };
 }
 
@@ -65,15 +68,6 @@ export function buildAttackResult(player, enemies, targetIndex, log, showFloat) 
     return null;
   }
 
-  if (
-    player.modules.includes('kings_decree') &&
-    !player.combatState.firstFiveUsedThisTurn &&
-    selected.some((c) => c.num === 5)
-  ) {
-    log('[왕의 칙령] 제출된 5가 K로 취급됩니다!', 'system');
-    player.combatState.firstFiveUsedThisTurn = true;
-  }
-
   const submitted = [...selected];
   discardSelectedCards(player);
 
@@ -86,24 +80,25 @@ export function buildAttackResult(player, enemies, targetIndex, log, showFloat) 
     target.hp -= actualDmg;
     hits.push({ wInfo, actualDmg, isCrit });
 
-    if (w.level >= 2) {
+    const effLv = getEffectiveWeaponLevel(w, player);
+    if (effLv >= 2) {
       if (w.id === 'greatsword') {
-        target.status.bleed = (target.status.bleed || 0) + (w.level - 1);
-        log(`${target.name} 출혈 ${w.level - 1} 부여.`, 'system');
+        target.status.bleed = (target.status.bleed || 0) + (effLv - 1);
+        log(`${target.name} 출혈 ${effLv - 1} 부여.`, 'system');
       }
       if (w.id === 'eclipse') {
-        target.status.burn = (target.status.burn || 0) + (w.level - 1);
-        log(`${target.name} 화상 ${w.level - 1} 부여.`, 'system');
+        target.status.burn = (target.status.burn || 0) + (effLv - 1);
+        log(`${target.name} 화상 ${effLv - 1} 부여.`, 'system');
       }
       if (w.id === 'club') {
-        const chance = 10 + (w.level - 2) * 15;
+        const chance = 10 + (effLv - 2) * 15;
         if (Math.random() * 100 <= chance) {
           target.status.stun = true;
           log(`${target.name} 기절!`, 'heal');
         }
       }
       if (w.id === 'axe') {
-        const heal = Math.floor((actualDmg * (15 + (w.level - 2) * 5)) / 100);
+        const heal = Math.floor((actualDmg * (15 + (effLv - 2) * 5)) / 100);
         if (heal > 0) {
           player.hp = Math.min(player.maxHp, player.hp + heal);
           log(`${heal} 체력 회복.`, 'heal');
@@ -120,6 +115,10 @@ export function buildAttackResult(player, enemies, targetIndex, log, showFloat) 
 
   applyPostAttackModules(player, enemies, submitted, activeWeapons, log);
   applyEngineDraw(player, submitted, log);
+
+  if (player.modules.includes('one_way')) {
+    player.combatState.oneWayReqConsumed = true;
+  }
 
   return { targetDead: target.hp <= 0, targetIndex: idx };
 }

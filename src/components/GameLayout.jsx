@@ -38,12 +38,8 @@ export default function GameLayout() {
         return;
       }
       useActiveModule(modId, { cardIndex: sel[0] });
-    } else if (modId === 'delay_draw') {
-      if (sel.length !== 2) {
-        log('버릴 카드 2장을 선택하세요.', 'system');
-        return;
-      }
-      useActiveModule(modId, { cardIndices: sel });
+    } else if (modId === 'delay_draw' || modId === 'blood_draw') {
+      useActiveModule(modId, {});
     } else if (modId === 'empty_deck_rescue' || modId === 'combat_double_draw' || modId === 'overload_chip') {
       useActiveModule(modId, {});
     }
